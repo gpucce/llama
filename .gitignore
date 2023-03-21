@@ -2,7 +2,7 @@
 output
 wandb
 test_output*
-bitsabdbytes
+bitsandbytes
 fairscale
 
 # Byte-compiled / optimized / DLL files
