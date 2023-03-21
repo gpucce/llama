@@ -6,8 +6,7 @@
 #SBATCH --wait-all-nodes=1
 #SBATCH --job-name=llama
 #SBATCH --output=distributed_test.out
-#SBATCH --mem=120G
-#SBATCH --time=00:10:00
+#SBATCH --mem-per-gpu=32G
 
 eval "$(/app/anaconda3/bin/conda shell.bash hook)" # init conda
 conda activate llama
@@ -19,8 +18,10 @@ master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
 export MASTER_ADDR=$master_addr
 
 cd /home/users/giovannipuccetti/Repos/llama
-srun --cpu_bind=v --accel-bind=gn python -u llama_on_slurm.py \
-    --ckpt-dir ~/Models/13B_spread_8/ \
-    --tokenizer-path ~/Models/13B/tokenizer.model \
-    --max-batch-size=8 \
-    --max-seq-len=1000
+srun --cpu_bind=v --accel-bind=gn python -u -m llama.train \
+    --model-dir="/home/users/giovannipuccetti/Models/13B_spread_8/" \
+    --tokenizer-path="/home/users/giovannipuccetti/Models/13B_spread_8/tokenizer.model" \
+    --batch-size=4 \
+    --max-seq-len=32 \
+    --epochs=3 \
+    --lr=0.0005

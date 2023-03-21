@@ -64,17 +64,22 @@ def load(
         params = json.loads(f.read())
 
     model_args: ModelArgs = ModelArgs(
-        max_seq_len=max_seq_len, 
+        max_seq_len=max_seq_len,
         max_batch_size=max_batch_size,
         do_cache=True,
-        **params,
+        **params
     )
-    
     tokenizer = Tokenizer(model_path=tokenizer_path)
     model_args.vocab_size = tokenizer.n_words
     torch.set_default_tensor_type(torch.HalfTensor)
     model = Transformer(model_args)
-    model.load_state_dict(checkpoint, strict=False)
+    
+    embs = model.tok_embeddings.weight.data
+    emb_height, emb_width = embs.shape
+    new_embs = torch.ones(emb_height + 1, emb_width)
+    model.tok_embeddings.weight.data = new_embs
+    
+    model.load_state_dict(checkpoint.state_dict(), strict=False)
     model_size = 0
     for i in model.parameters():
         model_size += i.nelement() * i.element_size()
@@ -162,7 +167,7 @@ def main(
         output_path = Path("output")
         output_path.mkdir(exist_ok=True, parents=True)
         print(results)
-        with open(output_path / "test_result.txt", "w") as tf:
+        with open(output_path / "test_result_fine_tuned.txt", "w") as tf:
             for result in results:
                 tf.write(result)
                 tf.write("\n==================================\n")

@@ -8,6 +8,7 @@ import math
 import torch
 from torch import nn
 import torch.nn.functional as F
+from torch.nn import CrossEntropyLoss
 
 import fairscale.nn.model_parallel.initialize as fs_init
 from fairscale.nn.model_parallel.layers import (
@@ -15,6 +16,8 @@ from fairscale.nn.model_parallel.layers import (
     RowParallelLinear,
     ColumnParallelLinear,
 )
+
+from copy import deepcopy
 
 
 @dataclass
@@ -28,6 +31,7 @@ class ModelArgs:
 
     max_batch_size: int = 32
     max_seq_len: int = 2048
+    do_cache: Optional[int] = None
 
 
 class RMSNorm(torch.nn.Module):
@@ -108,15 +112,23 @@ class Attention(nn.Module):
             input_is_parallel=True,
             init_method=lambda x: x,
         )
+        self.do_cache = args.do_cache
+        if self.do_cache:
 
-        self.cache_k = torch.zeros(
-            (args.max_batch_size, args.max_seq_len, self.n_local_heads, self.head_dim)
-        )# .cuda()
-        self.cache_v = torch.zeros(
-            (args.max_batch_size, args.max_seq_len, self.n_local_heads, self.head_dim)
-        )# .cuda()
+            self.cache_k = torch.zeros(
+                (args.max_batch_size, args.max_seq_len, self.n_local_heads, self.head_dim)
+            )  # .cuda()
+            self.cache_v = torch.zeros(
+                (args.max_batch_size, args.max_seq_len, self.n_local_heads, self.head_dim)
+            )  # .cuda()
 
-    def forward(self, x: torch.Tensor, start_pos: int, freqs_cis: torch.Tensor, mask: Optional[torch.Tensor]):
+    def forward(
+        self,
+        x: torch.Tensor,
+        start_pos: int,
+        freqs_cis: torch.Tensor,
+        mask: Optional[torch.Tensor],
+    ):
         bsz, seqlen, _ = x.shape
         xq, xk, xv = self.wq(x), self.wk(x), self.wv(x)
 
@@ -125,15 +137,19 @@ class Attention(nn.Module):
         xv = xv.view(bsz, seqlen, self.n_local_heads, self.head_dim)
 
         xq, xk = apply_rotary_emb(xq, xk, freqs_cis=freqs_cis)
+        
+        if self.do_cache:
+            self.cache_k = self.cache_k.to(xq)
+            self.cache_v = self.cache_v.to(xq)
 
-        self.cache_k = self.cache_k.to(xq)
-        self.cache_v = self.cache_v.to(xq)
+            self.cache_k[:bsz, start_pos : start_pos + seqlen] = xk
+            self.cache_v[:bsz, start_pos : start_pos + seqlen] = xv
 
-        self.cache_k[:bsz, start_pos : start_pos + seqlen] = xk
-        self.cache_v[:bsz, start_pos : start_pos + seqlen] = xv
-
-        keys = self.cache_k[:bsz, : start_pos + seqlen]
-        values = self.cache_v[:bsz, : start_pos + seqlen]
+            keys = self.cache_k[:bsz, : start_pos + seqlen]
+            values = self.cache_v[:bsz, : start_pos + seqlen]
+        else:
+            keys = xk
+            values = xv
 
         xq = xq.transpose(1, 2)
         keys = keys.transpose(1, 2)
@@ -143,9 +159,7 @@ class Attention(nn.Module):
             scores = scores + mask  # (bs, n_local_heads, slen, cache_len + slen)
         scores = F.softmax(scores.float(), dim=-1).type_as(xq)
         output = torch.matmul(scores, values)  # (bs, n_local_heads, slen, head_dim)
-        output = output.transpose(
-            1, 2
-        ).contiguous().view(bsz, seqlen, -1)
+        output = output.transpose(1, 2).contiguous().view(bsz, seqlen, -1)
 
         return self.wo(output)
 
@@ -189,8 +203,16 @@ class TransformerBlock(nn.Module):
         self.attention_norm = RMSNorm(args.dim, eps=args.norm_eps)
         self.ffn_norm = RMSNorm(args.dim, eps=args.norm_eps)
 
-    def forward(self, x: torch.Tensor, start_pos: int, freqs_cis: torch.Tensor, mask: Optional[torch.Tensor]):
-        h = x + self.attention.forward(self.attention_norm(x), start_pos, freqs_cis, mask)
+    def forward(
+        self,
+        x: torch.Tensor,
+        start_pos: int,
+        freqs_cis: torch.Tensor,
+        mask: Optional[torch.Tensor],
+    ):
+        h = x + self.attention.forward(
+            self.attention_norm(x), start_pos, freqs_cis, mask
+        )
         out = h + self.feed_forward.forward(self.ffn_norm(h))
         return out
 
@@ -219,8 +241,9 @@ class Transformer(nn.Module):
             self.params.dim // self.params.n_heads, self.params.max_seq_len * 2
         )
 
-    @torch.inference_mode()
-    def forward(self, tokens: torch.Tensor, start_pos: int):
+        self.loss = CrossEntropyLoss()
+
+    def _forward(self, tokens: torch.Tensor, start_pos: int = 0):
         _bsz, seqlen = tokens.shape
         h = self.tok_embeddings(tokens)
         self.freqs_cis = self.freqs_cis.to(h.device)
@@ -228,11 +251,33 @@ class Transformer(nn.Module):
 
         mask = None
         if seqlen > 1:
-            mask = torch.full((1, 1, seqlen, seqlen), float("-inf"), device=tokens.device)
+            mask = torch.full(
+                (1, 1, seqlen, seqlen), float("-inf"), device=tokens.device
+            )
             mask = torch.triu(mask, diagonal=start_pos + 1).type_as(h)
 
         for layer in self.layers:
             h = layer(h, start_pos, freqs_cis, mask)
         h = self.norm(h)
+        return h
+
+    def forward(
+        self,
+        tokens: torch.Tensor,
+        start_pos: int = 0,
+        labels: Optional[torch.Tensor] = None,
+    ):
+        h = self._forward(tokens, start_pos=start_pos)
+        emb_output = self.output(h)
+        # emb_output = emb_output.to(torch.float32)
+        loss = None
+        if labels is not None:
+            loss = self.loss(emb_output.permute(0, 2, 1), labels)
+
+        return {"output": emb_output, "loss": loss}
+
+    @torch.inference_mode()
+    def generation_forward(self, tokens: torch.Tensor, start_pos: int):
+        h = self._forward(tokens, start_pos)
         output = self.output(h[:, -1, :])  # only compute last logits
         return output.float()

@@ -22,7 +22,10 @@ class LLaMA:
         top_p: float = 0.95,
     ) -> List[str]:
         bsz = len(prompts)
-        params = self.model.params
+        if hasattr(self.model, "module"):
+            params = self.model.module._fpw_module.params
+        else:
+            params = self.model.params
         assert bsz <= params.max_batch_size, (bsz, params.max_batch_size)
 
         prompt_tokens = [self.tokenizer.encode(x, bos=True, eos=False) for x in prompts]
@@ -40,7 +43,9 @@ class LLaMA:
         start_pos = min_prompt_size
         prev_pos = 0
         for cur_pos in range(start_pos, total_len):
-            logits = self.model.forward(tokens[:, prev_pos:cur_pos], prev_pos)
+            logits = self.model.generation_forward(
+                tokens[:, prev_pos:cur_pos], prev_pos
+            )
             if temperature > 0:
                 probs = torch.softmax(logits / temperature, dim=-1)
                 next_token = sample_top_p(probs, top_p)
