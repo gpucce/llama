@@ -1,6 +1,9 @@
 *.out
 output
-
+wandb
+test_output*
+bitsabdbytes
+fairscale
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
