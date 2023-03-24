@@ -23,3 +23,18 @@ def setup_model_parallel() -> Tuple[int, int, int]:
     # seed must be the same in all processes
     torch.manual_seed(1)
     return local_rank, global_rank, world_size
+
+
+def get_cuda_info():
+    t = torch.cuda.get_device_properties(local_rank).total_memory
+    r = torch.cuda.memory_reserved(local_rank)
+    a = torch.cuda.memory_allocated(local_rank)
+    f = r-a  # free inside reserved
+    print(
+        f"Memory, total {t},",
+        f"reserved {r}, allocated {a},",
+        f"free {f},",
+        f"local rank {local_rank},",
+        f"device {device},",
+        f"world_size {world_size}"
+    )
