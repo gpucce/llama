@@ -10,6 +10,8 @@ import torch
 import fire
 import time
 import json
+import pandas as pd
+import random
 
 from pathlib import Path
 
@@ -76,11 +78,6 @@ def load(
     torch.set_default_tensor_type(torch.HalfTensor)
     model = Transformer(model_args)
     
-    embs = model.tok_embeddings.weight.data
-    emb_height, emb_width = embs.shape
-    new_embs = torch.ones(emb_height + 1, emb_width)
-    model.tok_embeddings.weight.data = new_embs
-    
     model.load_state_dict(checkpoint, strict=False)
     model_size = 0
     for i in model.parameters():
@@ -114,11 +111,9 @@ def main(
     output_path: str = "fine_tuned",
 ):
     local_rank, global_rank, world_size = setup_model_parallel()
-    node_id = int(os.environ.get("SLURM_NODEID", -1))
-    # if local_rank > 0:
-    # if int(node_id) > 0:
-        # sys.stdout = open(os.devnull, "w")
-        # sys.stderr = open(os.devnull, "w")
+    if global_rank > 0:
+        sys.stdout = open(os.devnull, "w")
+    #     sys.stderr = open(os.devnull, "w")
 
     generator = load(
         ckpt_dir,
@@ -129,53 +124,31 @@ def main(
         max_seq_len,
         max_batch_size,
     )
+
     torch.distributed.barrier()
-    if local_rank != 0:
-        time.sleep(5)
     generator.model.to(torch.device(local_rank))
-    t = torch.cuda.get_device_properties(local_rank).total_memory
-    r = torch.cuda.memory_reserved(local_rank)
-    a = torch.cuda.memory_allocated(local_rank)
-    f = r - a  # free inside reserved
-    print(
-        "DEVICE",
-        local_rank,
-        global_rank,
-        torch.cuda.current_device(),
-        torch.cuda.device_count(),
-        node_id,
-    )
-    print(f"Total memory {t}, Reserved {r}, Allocated {a}, Free {f}")
-    # try:
-    # except:
-    # print("ERRORED", local_rank, global_rank, node_id)
 
-    ingredients = [
-        "la cipolla",
-        "il pollo",
-        "il tacchino",
-        "la carne",
-        "i porri",
-        "lo zucchero",
-        "7 ingredienti diversi",
-        "il cacciucco",
-    ]
-
-    prompts = [f"Questa è una ricetta con {i}:" for i in ingredients]
-    results = generator.generate(
-        prompts, max_gen_len=256, temperature=temperature, top_p=top_p
-    )
-    
-    epoch = [i for i in ckpt_dir.split("/") if "epoch" in i][0]
-    
-    if global_rank == 0:
-        output_path = Path("output") / output_path
-        output_path.mkdir(exist_ok=True, parents=True)
+    file_name = "./data/complexity_ds_en.csv"
+    ds = pd.read_csv(file_name).iloc[-20:, :]
+    # idxs = random.sample(range(ds.shape[0]), 20)
+    # ds = ds.iloc[idxs, :].reset_index(drop=True)
+    dataloader = torch.utils.data.DataLoader(ds.SENTENCE.to_list(), batch_size=8)
+    rephrased = []
+    start = time.time()
+    print("Here we are")
+    for prompts in dataloader:
+        prompts = ['"' + i + '"' + " this passage can be rewritten as follows: " for i in prompts]
+        results = generator.generate(
+            prompts, max_gen_len=256, temperature=temperature, top_p=top_p
+        )
         print(results)
-        with open(output_path / f"test_result_fine_tuned_epoch_{epoch}.txt", "w") as tf:
-            for result in results:
-                tf.write(result)
-                tf.write("\n==================================\n")
+        rephrased += results
+    ds["LM_PHRASED"] = rephrased
+    data_source = Path(file_name).stem
+    ds.to_csv(f"data/{data_source}_rephrased_pretrained.csv")
+    elapsed = time.time() - start
+    
+    print(f"The process took: {elapsed} seconds.")
 
 
 if __name__ == "__main__":

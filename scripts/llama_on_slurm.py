@@ -1,6 +1,8 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # This software may be used and distributed according to the terms of the GNU General Public License version 3.
 
+import sys
+sys.path.insert(0, "/home/users/giovannipuccetti/Repos/llama")
 from typing import Tuple
 import os
 import sys
@@ -104,13 +106,10 @@ def main(
     top_p: float = 0.95,
     max_seq_len: int = 512,
     max_batch_size: int = 32,
+    output_path: str = "pretrained",
 ):
     local_rank, global_rank, world_size = setup_model_parallel()
     node_id = int(os.environ.get("SLURM_NODEID", -1))
-    # if local_rank > 0:
-    # if int(node_id) > 0:
-        # sys.stdout = open(os.devnull, "w")
-        # sys.stderr = open(os.devnull, "w")
 
     generator = load(
         ckpt_dir,
@@ -142,6 +141,22 @@ def main(
     # except:
     # print("ERRORED", local_rank, global_rank, node_id)
 
+    results = generator.generate(
+        prompts, max_gen_len=256, temperature=temperature, top_p=top_p
+    )
+
+    if global_rank == 0:
+        output_path = Path("output") / output_path
+        output_path.mkdir(exist_ok=True, parents=True)
+        print(results)
+        with open(output_path / "test_result.txt", "w") as tf:
+            for result in results:
+                tf.write(result)
+                tf.write("\n==================================\n")
+
+
+if __name__ == "__main__":
+    
     ingredients = [
         "la cipolla",
         "il pollo",
@@ -154,19 +169,5 @@ def main(
     ]
 
     prompts = [f"Questa è una ricetta con {i} in italiano:" for i in ingredients]
-    results = generator.generate(
-        prompts, max_gen_len=256, temperature=temperature, top_p=top_p
-    )
-
-    if global_rank == 0:
-        output_path = Path("output")
-        output_path.mkdir(exist_ok=True, parents=True)
-        print(results)
-        with open(output_path / "test_result.txt", "w") as tf:
-            for result in results:
-                tf.write(result)
-                tf.write("\n==================================\n")
-
-
-if __name__ == "__main__":
+    
     fire.Fire(main)
