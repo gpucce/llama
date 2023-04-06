@@ -7,7 +7,6 @@
 #SBATCH --job-name=fine_tuned_llama
 #SBATCH --output=slurm_out/fine_tuned_job_%j.out
 #SBATCH --mem=120G
-#SBATCH --time=00:10:00
 
 eval "$(/app/anaconda3/bin/conda shell.bash hook)" # init conda
 conda activate llama
@@ -17,12 +16,11 @@ export RANK=$SLURM_PROCID
 master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
 export MASTER_ADDR=$master_addr
 
-epoch=00001
+epoch=00009
 
 cd /home/users/giovannipuccetti/Repos/llama
-srun --cpu_bind=v --accel-bind=gn python -u scripts/fine_tuned_llama_on_slurm.py \
+srun --cpu_bind=v --accel-bind=gn python -u scripts/dataset_rewriting_ita.py \
     --ckpt-dir ./test_output/run_03-28-2023-11-57-35/epoch_$epoch/model \
     --tokenizer-path ~/Models/65B_spread_32/tokenizer.model \
     --max-batch-size=8 \
-    --max-seq-len=1000 \
-    --output_path fine_tuned_epoch_$epoch
+    --max-seq-len=1000

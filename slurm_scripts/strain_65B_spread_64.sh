@@ -1,5 +1,5 @@
 #!/bin/bash -x
-#SBATCH --nodelist=ben03,ben04,ben05,ben06,ben07,ben08,ben09,ben10
+#SBATCH --nodes=16
 #SBATCH --gres=gpu:4
 #SBATCH --ntasks-per-node=4
 #SBATCH --cpus-per-task=4
@@ -22,14 +22,14 @@ export MASTER_ADDR=$master_addr
 
 cd /home/users/giovannipuccetti/Repos/llama
 srun --cpu_bind=v --accel-bind=gn python -u -m llama.train \
-    --model-dir="/home/users/giovannipuccetti/Models/65B_spread_32/" \
-    --tokenizer-path="/home/users/giovannipuccetti/Models/65B_spread_32/tokenizer.model" \
-    --batch-size=2 \
-    --max-seq-len=64 \
-    --epochs=3 \
-    --lr=0.0005 \
-    --max-samples 100000 \
+    --model-dir="/home/users/giovannipuccetti/Models/65B_spread_64/" \
+    --tokenizer-path="/home/users/giovannipuccetti/Models/65B_spread_64/tokenizer.model" \
+    --batch-size=8 \
+    --max-seq-len=128 \
+    --epochs=50 \
+    --lr=0.00005 \
+    --max-samples 1000000 \
     --log-freq 5 \
-    --steps-per-epoch 50 \
+    --steps-per-epoch 10000 \
     --resume "latest"
     

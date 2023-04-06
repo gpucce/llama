@@ -1,12 +1,12 @@
 #!/bin/bash -x
-#SBATCH --nodes=1
+#SBATCH --nodelist=ben04
 #SBATCH --gres=gpu:0
 #SBATCH --ntasks-per-node=4
 #SBATCH --cpus-per-task=4
 #SBATCH --wait-all-nodes=1
 #SBATCH --job-name=llama
 #SBATCH --output=distributed_test.out
-#SBATCH --mem=30G
+#SBATCH --mem=500G
 
 eval "$(/app/anaconda3/bin/conda shell.bash hook)" # init conda
 conda activate llama
