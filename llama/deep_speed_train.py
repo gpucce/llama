@@ -5,24 +5,23 @@ import sys
 import os
 from copy import deepcopy
 from typing import Optional
-import gc
 
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.checkpoint import checkpoint
-from torch.optim import Adam, SGD
+from torch.optim import AdamW, SGD
 from torch.optim.lr_scheduler import OneCycleLR
 
-from fire import Fire
+import deepspeed
+
 import pandas as pd
 import wandb
 
 from .generation import LLaMA
 from .model import ModelArgs, Transformer
 from .tokenizer import Tokenizer
-from .utils import setup_model_parallel
-from .optimizer import OffloadOptimizer
+from .utils import setup_deep_speed_model_parallel, custom_parse_args
 
 from fairscale.optim.oss import OSS
 from fairscale.nn.data_parallel import FullyShardedDataParallel as FSDP
@@ -38,7 +37,6 @@ class CustomDataLoader:
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.batch_size = batch_size
-        self.data_path = data_path
         self.data = open(data_path)
         self.max_samples = max_samples
         self.samples_done = 0
@@ -49,7 +47,7 @@ class CustomDataLoader:
     def __next__(self):
         if self.samples_done >= self.max_samples:
             self.close()
-            self.data = open(self.data_path)
+            self.data = open(data_path)
             self.samples_done = 0
 
         self.samples_done += self.batch_size
@@ -70,43 +68,25 @@ class CustomDataLoader:
         self.data.close()
 
 
-def main(
-    model_dir: str,
-    tokenizer_path: str,
-    epochs: int = 3,
-    steps_per_epoch: int = 10000,
-    batch_size: int = 8,
-    output_path: str = f"test_output",
-    lr: float = 1.0e-4,
-    data_path: str = "/home/users/giovannipuccetti/Data/books_ita_tokenized_128.jsonl",
-    max_seq_len: int = 512,
-    max_samples: Optional[int] = None,
-    log_freq: int = 10,
-    resume: Optional[str] = None,
-    accum_freq: int = 1,
-):
-    print(model_dir, tokenizer_path, epochs, batch_size, output_path, lr, max_seq_len)
-    args = dict(
-        model_dir=model_dir,
-        tokenizer_path=tokenizer_path,
-        epochs=epochs,
-        steps_per_epoch=steps_per_epoch,
-        batch_size=batch_size,
-        output_path=output_path,
-        lr=lr,
-        max_seq_len=max_seq_len,
-        log_freq=log_freq,
-        resume=resume,
-        accum_freq=accum_freq,
-    )
+def main():
+    args = custom_parse_args()
+    log_args = vars(args)
+    to_log = "INFO |"
+    for key, val in log_args.items():
+        if val is not None:
+            to_log += key.upper() + f" {val} | "
+    to_log += "\n"
 
-    ckpt_dir = model_dir
-    local_rank, global_rank, world_size = setup_model_parallel()
+    ckpt_dir = args.model_dir
+    local_rank, global_rank, world_size = setup_deep_speed_model_parallel()
     device = torch.device(local_rank)
     is_master = global_rank == 0
 
-    output_path = Path(output_path)
-    if resume is None:
+    if is_master:
+        print(to_log)
+
+    output_path = Path(args.output_path)
+    if args.resume is None:
         this_time = datetime.now().strftime("%m-%d-%Y-%H-%M-%S")
         run_output_path = output_path / f"run_{this_time}"
         run_output_path.mkdir(exist_ok=True, parents=True)
@@ -137,9 +117,9 @@ def main(
             name=f"{this_time}_lama",
             id=f"{this_time}_lama",
             tags=[],
-            config=args,
-            mode="online",
-            resume="auto" if resume == "latest" else None,
+            config=log_args,
+            mode="offline",
+            resume="auto" if args.resume == "latest" else None,
         )
 
     assert world_size == len(
@@ -150,14 +130,14 @@ def main(
         args_params = json.loads(f.read())
 
     model_args = ModelArgs(
-        max_seq_len=max_seq_len,
-        max_batch_size=batch_size,
+        max_seq_len=args.max_seq_len,
+        max_batch_size=args.batch_size,
         do_cache=False,
         **args_params,
     )
-    tokenizer = Tokenizer(tokenizer_path)
+    tokenizer = Tokenizer(args.tokenizer_path)
     model_args.vocab_size = tokenizer.n_words
-    torch.set_default_tensor_type(torch.HalfTensor)
+    # torch.set_default_tensor_type(torch.HalfTensor)
     model = Transformer(model_args)
     checkpoint = torch.load(ckpt_path, map_location="cpu")
 
@@ -175,19 +155,19 @@ def main(
     if not load_before_extension:
         model.load_state_dict(checkpoint, strict=False)
 
-    model = model.to(device, dtype=torch.float16)
+    # model = model.to(device, dtype=torch.float16)
+    model_engine, _, _, _ = deepspeed.initialize(
+        args=args, model=model, model_parameters=model.parameters()
+    )
     torch.distributed.barrier()
-    torch.set_default_tensor_type(torch.HalfTensor)
+    # torch.set_default_tensor_type(torch.FloatTensor)
 
     sampler = None  # DistributedSampler(data)
-    # optimizer = Adam(params=(j for i, j in model.named_parameters() if "norm" not in i), lr=lr, eps=1.e-4)
+    # optimizer = AdamW(params=(j for i, j in model.named_parameters() if "norm" not in i), lr=lr)
     # optimizer = SGD((j for i, j in model.named_parameters() if "norm" not in i), lr=lr)
-    optimizer = OffloadOptimizer(
-        (j for i, j in model.named_parameters() if "norm" not in i), lr=lr
-    )
     # scheduler = OneCycleLR(optimizer, max_lr=lr, steps_per_epoch=steps_per_epoch, epochs=epochs)
 
-    if resume is not None:
+    if args.resume is not None:
         optimizer.load_state_dict(torch.load(optim_path, map_location="cpu"))
         # scheduler.load_state_dict(scheduler_path, map_location="cpu")
 
@@ -196,36 +176,31 @@ def main(
 
     dataloader = CustomDataLoader(
         tokenizer,
-        data_path,
-        max_seq_len=max_seq_len,
-        batch_size=batch_size,
-        max_samples=max_samples,
+        args.data_path,
+        max_seq_len=args.max_seq_len,
+        batch_size=args.batch_size,
+        max_samples=args.max_samples,
     )
 
     # exhaust past samples if resume
-    for _ in range(0, resume_epoch + 1):
-        for step in range(steps_per_epoch):
+    for _ in range(0, resume_epoch):
+        for step in range(args.steps_per_epoch):
             next(dataloader)
 
-    global_step = resume_epoch * steps_per_epoch
-    for epoch in range(resume_epoch, epochs):
-        optimizer.zero_grad()
-        for step in range(steps_per_epoch):
-            batch = next(dataloader).to(device)
-            labels = deepcopy(batch[:, 1:]).to(device)
+    global_step = resume_epoch * args.steps_per_epoch
+    for epoch in range(resume_epoch, args.epochs):
+        # optimizer.zero_grad()
+        for step in range(args.steps_per_epoch):
+            batch = next(dataloader)
+            labels = deepcopy(batch[:, 1:])
             labels[labels == PAD_ID] = IGNORE_INDEX
-
-            out = model(batch[:, :-1], labels=labels)
+            out = model_engine(batch[:, :-1].to(device), labels=labels.to(device))
             loss = out["loss"]
-            loss.backward()
-            if (step % accum_freq == 0) and global_step > 0:
-                # with torch.autocast("cuda", dtype=torch.float32):
-                optimizer.step()
-                optimizer.zero_grad()
+            model_engine.backward(loss)
+            model_engine.step()
+            _loss = loss.clone().detach()
 
-            _loss = loss.clone().item()
-
-            if is_master and (global_step % log_freq == 0):
+            if is_master and (global_step % args.log_freq == 0):
                 print(
                     f"STEP {global_step}, EPOCH {epoch}, EPOCH_STEP {step}, LR {local_rank}, GR {global_rank}, LOSS {_loss}"
                 )
@@ -265,5 +240,4 @@ def main(
 
 
 if __name__ == "__main__":
-    torch.cuda.empty_cache()
-    Fire(main)
+    main()

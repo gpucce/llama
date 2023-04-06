@@ -114,12 +114,21 @@ class Attention(nn.Module):
         )
         self.do_cache = args.do_cache
         if self.do_cache:
-
             self.cache_k = torch.zeros(
-                (args.max_batch_size, args.max_seq_len, self.n_local_heads, self.head_dim)
+                (
+                    args.max_batch_size,
+                    args.max_seq_len,
+                    self.n_local_heads,
+                    self.head_dim,
+                )
             )  # .cuda()
             self.cache_v = torch.zeros(
-                (args.max_batch_size, args.max_seq_len, self.n_local_heads, self.head_dim)
+                (
+                    args.max_batch_size,
+                    args.max_seq_len,
+                    self.n_local_heads,
+                    self.head_dim,
+                )
             )  # .cuda()
 
     def forward(
@@ -137,7 +146,7 @@ class Attention(nn.Module):
         xv = xv.view(bsz, seqlen, self.n_local_heads, self.head_dim)
 
         xq, xk = apply_rotary_emb(xq, xk, freqs_cis=freqs_cis)
-        
+
         if self.do_cache:
             self.cache_k = self.cache_k.to(xq)
             self.cache_v = self.cache_v.to(xq)
