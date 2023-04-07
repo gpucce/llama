@@ -22,7 +22,7 @@ from fairscale.nn.model_parallel.initialize import (
 
 from fairscale.nn.data_parallel import FullyShardedDataParallel as FSDP
 
-from llama import ModelArgs, Transformer, Tokenizer, LLaMA
+from llama import ModelArgs, Transformer, Tokenizer, load
 
 
 def setup_model_parallel() -> Tuple[int, int, int]:
@@ -43,65 +43,6 @@ def setup_model_parallel() -> Tuple[int, int, int]:
     # seed must be the same in all processes
     torch.manual_seed(1)
     return local_rank, global_rank, world_size
-
-
-def load(
-    ckpt_dir: str,
-    tokenizer_path: str,
-    local_rank: int,
-    global_rank: int,
-    world_size: int,
-    max_seq_len: int,
-    max_batch_size: int,
-) -> LLaMA:
-    start_time = time.time()
-    checkpoints = sorted(Path(ckpt_dir).glob("*.pth"))
-    assert world_size == len(
-        checkpoints
-    ), f"Loading a checkpoint for MP={len(checkpoints)} but world size is {world_size}"
-    ckpt_path = checkpoints[global_rank]
-    time.sleep(5 * local_rank)
-    checkpoint = torch.load(ckpt_path, map_location="cpu")
-    with open(Path(ckpt_dir) / "params.json", "r") as f:
-        params = json.loads(f.read())
-
-    model_args: ModelArgs = ModelArgs(
-        max_seq_len=max_seq_len,
-        max_batch_size=max_batch_size,
-        do_cache=True,
-        **params
-    )
-    tokenizer = Tokenizer(model_path=tokenizer_path)
-    model_args.vocab_size = tokenizer.n_words
-    torch.set_default_tensor_type(torch.HalfTensor)
-    model = Transformer(model_args)
-    
-    embs = model.tok_embeddings.weight.data
-    emb_height, emb_width = embs.shape
-    new_embs = torch.ones(emb_height + 1, emb_width)
-    model.tok_embeddings.weight.data = new_embs
-    
-    model.load_state_dict(checkpoint, strict=False)
-    model_size = 0
-    for i in model.parameters():
-        model_size += i.nelement() * i.element_size()
-    torch.set_default_tensor_type(torch.FloatTensor)
-    print("MODEL_SIZE", model_size)
-    print(
-        torch.cuda.device_count(),
-        os.environ.get("SLURM_NODEID", -1),
-        "MP rank",
-        get_model_parallel_rank(),
-        # "MP src rank",
-        # get_model_parallel_src_rank(),
-        "rank",
-        local_rank,
-        "global_rank",
-        global_rank,
-    )
-
-    generator = LLaMA(model, tokenizer)
-    return generator
 
 
 def main(

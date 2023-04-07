@@ -1,5 +1,10 @@
-from typing import Tuple, Optional
+
 import os
+import time
+import json
+from pathlib import Path
+from typing import Tuple, Optional
+
 import torch
 import deepspeed
 from argparse import ArgumentParser
@@ -7,6 +12,9 @@ from argparse import ArgumentParser
 
 from fairscale.nn.model_parallel.initialize import initialize_model_parallel
 
+from .generation import LLaMA
+from .model import ModelArgs, Transformer
+from .tokenizer import Tokenizer
 
 def setup_model_parallel() -> Tuple[int, int, int]:
     local_rank = int(os.environ.get("SLURM_LOCALID", -1))
@@ -75,7 +83,7 @@ def custom_parse_args():
     parser.add_argument(
         "--data-path",
         type=str,
-        default="/home/users/giovannipuccetti/Data/books_ita_tokenized_128.jsonl",
+        default="/home/users/txtgiovannipuccetti/Data/books_ita_tokenized_128.jsonl",
     )
     parser.add_argument("--max-seq-len", type=int, default=128)
     parser.add_argument("--max-samples", type=int, default=None)
@@ -84,3 +92,49 @@ def custom_parse_args():
     parser.add_argument("--accum-freq", type=int, default=1)
     deepspeed.add_config_arguments(parser)
     return parser.parse_args()
+
+def load(
+    ckpt_dir: str,
+    tokenizer_path: str,
+    local_rank: int,
+    global_rank: int,
+    world_size: int,
+    max_seq_len: int,
+    max_batch_size: int,
+) -> LLaMA:
+
+    start_time = time.time()
+    checkpoints = sorted(Path(ckpt_dir).glob("*.pth"))
+    assert world_size == len(
+        checkpoints
+    ), f"Loading a checkpoint for MP={len(checkpoints)} but world size is {world_size}"
+    ckpt_path = checkpoints[global_rank]
+    time.sleep(5 * local_rank)
+    checkpoint = torch.load(ckpt_path, map_location="cpu")
+    with open(Path(ckpt_dir) / "params.json", "r") as f:
+        params = json.loads(f.read())
+
+    model_args: ModelArgs = ModelArgs(
+        max_seq_len=max_seq_len,
+        max_batch_size=max_batch_size,
+        do_cache=True,
+        **params
+    )
+    tokenizer = Tokenizer(model_path=tokenizer_path)
+    model_args.vocab_size = tokenizer.n_words
+    torch.set_default_tensor_type(torch.HalfTensor)
+    model = Transformer(model_args)
+    
+    embs = model.tok_embeddings.weight.data
+    emb_height, emb_width = embs.shape
+    new_embs = torch.ones(emb_height + 1, emb_width)
+    model.tok_embeddings.weight.data = new_embs
+    
+    model.load_state_dict(checkpoint, strict=False)
+    model_size = 0
+    for i in model.parameters():
+        model_size += i.nelement() * i.element_size()
+    torch.set_default_tensor_type(torch.FloatTensor)
+
+    generator = LLaMA(model, tokenizer)
+    return generator

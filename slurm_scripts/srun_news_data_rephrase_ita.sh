@@ -16,12 +16,12 @@ export RANK=$SLURM_PROCID
 master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
 export MASTER_ADDR=$master_addr
 
-epoch=00009
+epoch=00003
 
 cd /home/users/giovannipuccetti/Repos/llama
 srun --cpu_bind=v --accel-bind=gn python -u scripts/dataset_rewriting_ita.py \
-    --ckpt-dir="./test_output/run_03-28-2023-11-57-35/epoch_$epoch/model" \
+    --ckpt-dir="./news_fine_tune/run_04-06-2023-11-51-03/epoch_$epoch/model" \
     --tokenizer-path="/home/users/giovannipuccetti/Models/65B_spread_32/tokenizer.model" \
     --max-batch-size=8 \
     --max-seq-len=1000 \
-    --output-path "books_fine_tune"
+    --output_path="news_fine_tune"

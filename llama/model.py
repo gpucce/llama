@@ -278,7 +278,6 @@ class Transformer(nn.Module):
     ):
         h = self._forward(tokens, start_pos=start_pos)
         emb_output = self.output(h)
-        # emb_output = emb_output.to(torch.float32)
         loss = None
         if labels is not None:
             loss = self.loss(emb_output.permute(0, 2, 1), labels)
@@ -289,4 +288,10 @@ class Transformer(nn.Module):
     def generation_forward(self, tokens: torch.Tensor, start_pos: int):
         h = self._forward(tokens, start_pos)
         output = self.output(h[:, -1, :])  # only compute last logits
+        return output.float()
+
+    @torch.inference_mode()
+    def detect_forward(self, tokens: torch.Tensor, start_pos: int=0):
+        h = self._forward(tokens, start_pos)
+        output = self.output(h)
         return output.float()
