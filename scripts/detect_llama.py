@@ -19,4 +19,9 @@ from fairscale.nn.model_parallel.initialize import (
 
 from fairscale.nn.data_parallel import FullyShardedDataParallel as FSDP
 
-from llama import ModelArgs, Transformer, Tokenizer, LLaMA
+from llama import ModelArgs, Transformer, Tokenizer, load, setup_model_parallel
+from llama.utils import custom_parser_args
+
+def main():
+    custom_parse_args()
+    
