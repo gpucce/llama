@@ -1,5 +1,4 @@
 import sys
-sys.path.append(".")
 from llama_on_slurm import main
 from fire import Fire
 

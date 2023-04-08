@@ -35,19 +35,22 @@ def setup_model_parallel() -> Tuple[int, int, int]:
     return local_rank, global_rank, world_size
 
 
-def get_cuda_info():
-    t = torch.cuda.get_device_properties(local_rank).total_memory
-    r = torch.cuda.memory_reserved(local_rank)
-    a = torch.cuda.memory_allocated(local_rank)
-    f = r - a  # free inside reserved
-    print(
-        f"Memory, total {t},",
-        f"reserved {r}, allocated {a},",
-        f"free {f},",
-        f"local rank {local_rank},",
-        f"device {device},",
-        f"world_size {world_size}",
-    )
+def get_cuda_info(local_rank, global_rank, world_size):
+    if global_rank == 0:
+        t = torch.cuda.get_device_properties(local_rank).total_memory
+        r = torch.cuda.memory_reserved(local_rank)
+        a = torch.cuda.memory_allocated(local_rank)
+        f = r - a  # free inside reserved
+        print(
+            f"Memory, total {t},",
+            f"reserved {r}, allocated {a},",
+            f"free {f},",
+            f"local rank {local_rank},",
+            f"global rank {global_rank}"
+            f"device {device},",
+            f"world_size {world_size}",
+        )
+        print(f"Total memory {t}, Reserved {r}, Allocated {a}, Free {f}")
 
 
 def custom_parse_args():

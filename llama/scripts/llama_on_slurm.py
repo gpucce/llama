@@ -2,7 +2,6 @@
 # This software may be used and distributed according to the terms of the GNU General Public License version 3.
 
 import sys
-sys.path.insert(0, "/home/users/giovannipuccetti/Repos/llama")
 from typing import Tuple
 import os
 import sys
@@ -50,19 +49,6 @@ def main(
     if local_rank != 0:
         time.sleep(5)
     generator.model.to(torch.device(local_rank))
-    t = torch.cuda.get_device_properties(local_rank).total_memory
-    r = torch.cuda.memory_reserved(local_rank)
-    a = torch.cuda.memory_allocated(local_rank)
-    f = r - a  # free inside reserved
-    print(
-        "DEVICE",
-        local_rank,
-        global_rank,
-        torch.cuda.current_device(),
-        torch.cuda.device_count(),
-        node_id,
-    )
-    print(f"Total memory {t}, Reserved {r}, Allocated {a}, Free {f}")
 
     results = generator.generate(
         prompts, max_gen_len=256, temperature=temperature, top_p=top_p

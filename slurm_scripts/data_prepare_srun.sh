@@ -12,4 +12,4 @@ eval "$(/app/anaconda3/bin/conda shell.bash hook)" # init conda
 conda activate llama
 
 cd /home/users/giovannipuccetti/Repos/llama
-srun python -m llama.data_prepare
+srun python -m llama.data.finetune_data_prepare

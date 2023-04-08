@@ -33,5 +33,6 @@ srun --cpu_bind=v --accel-bind=gn python -u -m llama.train \
     --max-samples 900000 \
     --log-freq 5 \
     --steps-per-epoch 10000 \
-    --accum-freq 64
+    --accum-freq 64 \
+    --resume "latest"
     

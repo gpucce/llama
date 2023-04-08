@@ -2,7 +2,6 @@
 # This software may be used and distributed according to the terms of the GNU General Public License version 3.
 
 import sys
-sys.path.insert(0, "/home/users/giovannipuccetti/Repos/llama")
 from typing import Tuple
 import os
 import sys
@@ -51,21 +50,19 @@ def main(
         max_batch_size,
     )
 
-    # torch.distributed.barrier()
+    torch.distributed.barrier()
     generator.model.to(torch.device(local_rank))
 
-    epoch = [i for i in ckpt_dir.split("/") if "epoch" in i][0]
-    file_name = "./data/complexity_ds_it.csv"
-    ds = pd.read_csv(file_name) # .iloc[-20:, :]
-    random.seed(42)
-    idxs = random.sample(range(ds.shape[0]), 20)
-    ds = ds.iloc[idxs, :].reset_index(drop=True)
+    file_name = "./data/complexity_ds_en.csv"
+    ds = pd.read_csv(file_name).iloc[-20:, :]
+    # idxs = random.sample(range(ds.shape[0]), 20)
+    # ds = ds.iloc[idxs, :].reset_index(drop=True)
     dataloader = torch.utils.data.DataLoader(ds.SENTENCE.to_list(), batch_size=8)
     rephrased = []
     start = time.time()
     print("Here we are")
     for prompts in dataloader:
-        # prompts = ['"' + i + '"' + " altrimenti, equivalentemente uno potrebbe scrivere: " for i in prompts]
+        prompts = ['"' + i + '"' + " this passage can be rewritten as follows: " for i in prompts]
         results = generator.generate(
             prompts, max_gen_len=256, temperature=temperature, top_p=top_p
         )
@@ -73,9 +70,7 @@ def main(
         rephrased += results
     ds["LM_PHRASED"] = rephrased
     data_source = Path(file_name).stem
-    output_path = Path("data") / output_path
-    output_path.mkdir(exist_ok=True, parents=True)
-    ds.to_csv(output_path / f"{data_source}_rephrased_{epoch}.csv")
+    ds.to_csv(f"data/{data_source}_rephrased_pretrained.csv")
     elapsed = time.time() - start
     
     print(f"The process took: {elapsed} seconds.")

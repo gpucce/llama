@@ -19,7 +19,7 @@ export MASTER_ADDR=$master_addr
 epoch=00003
 
 cd /home/users/giovannipuccetti/Repos/llama
-srun --cpu_bind=v --accel-bind=gn python -u scripts/dataset_rewriting_ita.py \
+srun --cpu_bind=v --accel-bind=gn python -u -m llama.data.dataset_rewriting_ita \
     --ckpt-dir="./news_fine_tune/run_04-06-2023-11-51-03/epoch_$epoch/model" \
     --tokenizer-path="/home/users/giovannipuccetti/Models/65B_spread_32/tokenizer.model" \
     --max-batch-size=8 \

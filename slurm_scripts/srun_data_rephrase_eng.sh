@@ -19,7 +19,7 @@ export MASTER_ADDR=$master_addr
 epoch=00001
 
 cd /home/users/giovannipuccetti/Repos/llama
-srun --cpu_bind=v --accel-bind=gn python -u scripts/dataset_rewriting_eng.py \
+srun --cpu_bind=v --accel-bind=gn python -u -m llama.data.dataset_rewriting_eng \
     --ckpt-dir="/home/users/giovannipuccetti/Models/65B_spread_32/" \
     --tokenizer-path="/home/users/giovannipuccetti/Models/65B_spread_32/tokenizer.model" \
     --max-batch-size=8 \

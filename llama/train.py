@@ -105,7 +105,7 @@ def main(
     device = torch.device(local_rank)
     is_master = global_rank == 0
 
-    output_path = Path(output_path)
+    output_path = Path("runs") / Path(output_path)
     if resume is None:
         this_time = datetime.now().strftime("%m-%d-%Y-%H-%M-%S")
         run_output_path = output_path / f"run_{this_time}"

@@ -20,7 +20,7 @@ export MASTER_ADDR=$master_addr
 epoch=00001
 
 cd /home/users/giovannipuccetti/Repos/llama
-srun --cpu_bind=v --accel-bind=gn python -u scripts/fine_tuned_llama_on_slurm.py \
+srun --cpu_bind=v --accel-bind=gn python -u -m llama.scripts.fine_tuned_llama_on_slurm \
     --ckpt-dir ./test_output/run_03-28-2023-11-57-35/epoch_$epoch/model \
     --tokenizer-path ~/Models/65B_spread_32/tokenizer.model \
     --max-batch-size=8 \

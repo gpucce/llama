@@ -2,7 +2,6 @@
 # This software may be used and distributed according to the terms of the GNU General Public License version 3.
 
 import sys
-sys.path.insert(0, "/home/users/giovannipuccetti/Repos/llama")
 from typing import Tuple
 import os
 import sys

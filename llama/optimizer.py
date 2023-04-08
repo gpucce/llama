@@ -14,6 +14,6 @@ class OffloadOptimizer(SGD):
                     i.add_(i.grad.to(torch.float32), alpha=-group["lr"]).to(
                         torch.float16
                     )
-                if stepper is not None:
+                if self.stepper is not None:
                     group["lr"] = self.stepper(group["lr"])
         

@@ -17,7 +17,7 @@ master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
 export MASTER_ADDR=$master_addr
 
 cd /home/users/giovannipuccetti/Repos/llama
-srun --cpu_bind=v --accel-bind=gn python -u -m llama.deep_speed_train \
+srun --cpu_bind=v --accel-bind=gn python -u -m llama.train \
     --model-dir="/home/users/giovannipuccetti/Models/13B_spread_8/" \
     --tokenizer-path="/home/users/giovannipuccetti/Models/13B_spread_8/tokenizer.model" \
     --batch-size=12 \
