@@ -61,7 +61,10 @@ def load(
     generator = LLaMA(model, tokenizer)
     print(f"Loaded in {time.time() - start_time:.2f} seconds")
     return generator
+
+
 Buongiorno
+
 
 def main(
     ckpt_dir: str,

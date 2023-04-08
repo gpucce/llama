@@ -55,7 +55,7 @@ def main(
 
     epoch = [i for i in ckpt_dir.split("/") if "epoch" in i][0]
     file_name = "./data/complexity_ds_it.csv"
-    ds = pd.read_csv(file_name) # .iloc[-20:, :]
+    ds = pd.read_csv(file_name)  # .iloc[-20:, :]
     random.seed(42)
     idxs = random.sample(range(ds.shape[0]), 20)
     ds = ds.iloc[idxs, :].reset_index(drop=True)
@@ -76,7 +76,7 @@ def main(
     output_path.mkdir(exist_ok=True, parents=True)
     ds.to_csv(output_path / f"{data_source}_rephrased_{epoch}.csv")
     elapsed = time.time() - start
-    
+
     print(f"The process took: {elapsed} seconds.")
 
 

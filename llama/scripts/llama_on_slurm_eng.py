@@ -3,7 +3,6 @@ from llama_on_slurm import main
 from fire import Fire
 
 if __name__ == "__main__":
-    
     ingredients = [
         "onions",
         "chicken",
@@ -15,7 +14,6 @@ if __name__ == "__main__":
         "with codfish",
     ]
 
-    global prompts = [f"This is a recipe with {i}:" for i in ingredients]
-    
-    Fire(main)
+    prompts = [f"This is a recipe with {i}:" for i in ingredients]
 
+    Fire(main)

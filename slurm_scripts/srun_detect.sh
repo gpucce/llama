@@ -1,11 +1,11 @@
 #!/bin/bash -x
-#SBATCH --nodes=4
+#SBATCH --nodelist=ben[11-18]
 #SBATCH --gres=gpu:4
 #SBATCH --ntasks-per-node=4
 #SBATCH --cpus-per-task=4
 #SBATCH --wait-all-nodes=1
 #SBATCH --job-name=llama
-#SBATCH --output=distributed_test.out
+#SBATCH --output=slurm_out/detect_%j.out
 #SBATCH --mem=120G
 #SBATCH --time=00:10:00
 
@@ -20,8 +20,8 @@ export MASTER_ADDR=$master_addr
 
 cd /home/users/giovannipuccetti/Repos/llama
 srun --cpu_bind=v --accel-bind=gn python -u -m llama.scripts.detect_llama \
-    --model-dir="llama/news_fine_tune/run_04-06-2023-11-51-03/epoch_00006" \
-    --tokenizer-path ~/Models/65B/tokenizer.model \
-    --max-batch-size=3 \
-    --data-path="~/Data/CHANGE-it/test/change-it.ilgiornale.test_1000_synthetic.csv" \
-    --output_path="data/test_detection.json"
+    --model-dir="./runs/news_fine_tune/run_04-06-2023-11-51-03/epoch_00006/model" \
+    --tokenizer-path="/home/users/giovannipuccetti/Models/65B/tokenizer.model" \
+    --batch-size=3 \
+    --data-path="/home/users/giovannipuccetti/Data/CHANGE-it/test/change-it.ilgiornale.test_1000_synthetic.csv" \
+    --output-path="data/test_detection.json"

@@ -1,4 +1,3 @@
-
 import os
 import time
 import json
@@ -14,6 +13,7 @@ from fairscale.nn.model_parallel.initialize import initialize_model_parallel
 from .generation import LLaMA
 from .model import ModelArgs, Transformer
 from .tokenizer import Tokenizer
+
 
 def setup_model_parallel() -> Tuple[int, int, int]:
     local_rank = int(os.environ.get("SLURM_LOCALID", -1))
@@ -46,8 +46,7 @@ def get_cuda_info(local_rank, global_rank, world_size):
             f"reserved {r}, allocated {a},",
             f"free {f},",
             f"local rank {local_rank},",
-            f"global rank {global_rank}"
-            f"device {device},",
+            f"global rank {global_rank}" f"device {device},",
             f"world_size {world_size}",
         )
         print(f"Total memory {t}, Reserved {r}, Allocated {a}, Free {f}")
@@ -74,6 +73,7 @@ def custom_parse_args():
     parser.add_argument("--accum-freq", type=int, default=1)
     return parser.parse_args()
 
+
 def load(
     ckpt_dir: str,
     tokenizer_path: str,
@@ -83,7 +83,6 @@ def load(
     max_seq_len: int,
     max_batch_size: int,
 ) -> LLaMA:
-
     start_time = time.time()
     checkpoints = sorted(Path(ckpt_dir).glob("*.pth"))
     assert world_size == len(
@@ -96,21 +95,18 @@ def load(
         params = json.loads(f.read())
 
     model_args: ModelArgs = ModelArgs(
-        max_seq_len=max_seq_len,
-        max_batch_size=max_batch_size,
-        do_cache=True,
-        **params
+        max_seq_len=max_seq_len, max_batch_size=max_batch_size, do_cache=True, **params
     )
     tokenizer = Tokenizer(model_path=tokenizer_path)
     model_args.vocab_size = tokenizer.n_words
     torch.set_default_tensor_type(torch.HalfTensor)
     model = Transformer(model_args)
-    
+
     embs = model.tok_embeddings.weight.data
     emb_height, emb_width = embs.shape
     new_embs = torch.ones(emb_height + 1, emb_width)
     model.tok_embeddings.weight.data = new_embs
-    
+
     model.load_state_dict(checkpoint, strict=False)
     model_size = 0
     for i in model.parameters():

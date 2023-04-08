@@ -57,8 +57,8 @@ def main(
     node_id = int(os.environ.get("SLURM_NODEID", -1))
     # if local_rank > 0:
     # if int(node_id) > 0:
-        # sys.stdout = open(os.devnull, "w")
-        # sys.stderr = open(os.devnull, "w")
+    # sys.stdout = open(os.devnull, "w")
+    # sys.stderr = open(os.devnull, "w")
 
     generator = load(
         ckpt_dir,
@@ -105,9 +105,9 @@ def main(
     results = generator.generate(
         prompts, max_gen_len=256, temperature=temperature, top_p=top_p
     )
-    
+
     epoch = [i for i in ckpt_dir.split("/") if "epoch" in i][0]
-    
+
     if global_rank == 0:
         output_path = Path("output") / output_path
         output_path.mkdir(exist_ok=True, parents=True)

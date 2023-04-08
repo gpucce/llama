@@ -291,7 +291,7 @@ class Transformer(nn.Module):
         return output.float()
 
     @torch.inference_mode()
-    def detect_forward(self, tokens: torch.Tensor, start_pos: int=0):
+    def detect_forward(self, tokens: torch.Tensor, start_pos: int = 0):
         h = self._forward(tokens, start_pos)
         output = self.output(h)
         return output.float()

@@ -65,7 +65,6 @@ def main(
 
 
 if __name__ == "__main__":
-    
     ingredients = [
         "la cipolla",
         "il pollo",
@@ -78,5 +77,5 @@ if __name__ == "__main__":
     ]
 
     prompts = [f"Questa è una ricetta con {i} in italiano:" for i in ingredients]
-    
+
     fire.Fire(main)

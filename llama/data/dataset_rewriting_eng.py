@@ -62,7 +62,10 @@ def main(
     start = time.time()
     print("Here we are")
     for prompts in dataloader:
-        prompts = ['"' + i + '"' + " this passage can be rewritten as follows: " for i in prompts]
+        prompts = [
+            '"' + i + '"' + " this passage can be rewritten as follows: "
+            for i in prompts
+        ]
         results = generator.generate(
             prompts, max_gen_len=256, temperature=temperature, top_p=top_p
         )
@@ -72,7 +75,7 @@ def main(
     data_source = Path(file_name).stem
     ds.to_csv(f"data/{data_source}_rephrased_pretrained.csv")
     elapsed = time.time() - start
-    
+
     print(f"The process took: {elapsed} seconds.")
 
 

@@ -16,4 +16,3 @@ class OffloadOptimizer(SGD):
                     )
                 if self.stepper is not None:
                     group["lr"] = self.stepper(group["lr"])
-        
