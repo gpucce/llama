@@ -89,7 +89,6 @@ def load(
         checkpoints
     ), f"Loading a checkpoint for MP={len(checkpoints)} but world size is {world_size}"
     ckpt_path = checkpoints[global_rank]
-    time.sleep(5 * local_rank)
     checkpoint = torch.load(ckpt_path, map_location="cpu")
     with open(Path(ckpt_dir) / "params.json", "r") as f:
         params = json.loads(f.read())

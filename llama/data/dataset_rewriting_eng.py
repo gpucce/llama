@@ -62,10 +62,10 @@ def main(
     start = time.time()
     print("Here we are")
     for prompts in dataloader:
-        prompts = [
-            '"' + i + '"' + " this passage can be rewritten as follows: "
-            for i in prompts
-        ]
+        # prompts = [
+        #     # '"' + i + '"' + " this passage can be rewritten as follows: "
+        #     for i in prompts
+        # ]
         results = generator.generate(
             prompts, max_gen_len=256, temperature=temperature, top_p=top_p
         )

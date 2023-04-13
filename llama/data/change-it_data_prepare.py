@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from random import shuffle
 import pandas as pd
-from .data_prepare import data_prepare
+from .finetune_data_prepare import data_prepare
 
 
 def _prepare_input_data(data_path, tokenizer):
