@@ -285,6 +285,18 @@ class Transformer(nn.Module):
         return {"output": emb_output, "loss": loss}
 
     @torch.inference_mode()
+    def alternative_forward(self, tokens, start_pos: int = 0, labels=None):
+        h = self._forward(tokens, start_pos=start_pos)
+        emb_output = self.output(h)
+        loss = None
+        if labels is not None:
+            loss = self.loss(
+                emb_output.reshape(-1, emb_output.shape[-1]), labels.reshape(-1)
+            )
+
+        return {"output": emb_output, "loss": loss}
+
+    @torch.inference_mode()
     def generation_forward(self, tokens: torch.Tensor, start_pos: int):
         h = self._forward(tokens, start_pos)
         output = self.output(h[:, -1, :])  # only compute last logits

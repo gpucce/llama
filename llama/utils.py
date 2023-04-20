@@ -54,23 +54,30 @@ def get_cuda_info(local_rank, global_rank, world_size):
 
 def custom_parse_args():
     parser = ArgumentParser()
-    parser.add_argument("--model-dir", type=str)
-    parser.add_argument("--tokenizer-path", type=str)
-    parser.add_argument("--epochs", type=int, default=3)
-    parser.add_argument("--steps-per-epoch", type=int, default=10000)
+    parser.add_argument("--accum-freq", type=int, default=1)
     parser.add_argument("--batch-size", type=int, default=8)
-    parser.add_argument("--output-path", type=str, default="test_output")
+    parser.add_argument("--col-name", type=str, default=None)
+    parser.add_argument("--col-names", type=str, default=None)
+    parser.add_argument("--data-path", type=str, default=None)
+    parser.add_argument("--device-id", type=int, default=0)
+    parser.add_argument("--epochs", type=int, default=3)
+    parser.add_argument("--log-freq", type=int, default=10)
     parser.add_argument("--lr", type=float, default=1.0e-4)
-    parser.add_argument(
-        "--data-path",
-        type=str,
-        default="/home/users/txtgiovannipuccetti/Data/books_ita_tokenized_128.jsonl",
-    )
     parser.add_argument("--max-seq-len", type=int, default=128)
     parser.add_argument("--max-samples", type=int, default=None)
-    parser.add_argument("--log-freq", type=int, default=10)
-    parser.add_argument("--resume", type=Optional[str], default=None)
-    parser.add_argument("--accum-freq", type=int, default=1)
+    parser.add_argument("--model-dir", type=str, default=None)
+    parser.add_argument(
+        "--modifier-model", type=str, default="dbmdz/bert-base-italian-xxl-cased"
+    )
+    parser.add_argument("--n-samples", type=int, default=-1)
+    parser.add_argument("--n-modifications", type=int, default=5)
+    parser.add_argument("--output-path", type=str, default="test_output")
+    parser.add_argument("--resume", type=str, default=None)
+    parser.add_argument("--steps-per-epoch", type=int, default=10000)
+    parser.add_argument("--temperature", type=float, default=0.8)
+    parser.add_argument("--tokenizer-path", type=str)
+    parser.add_argument("--top-p", type=float, default=0.95)
+    parser.add_argument("--top-k", type=int, default=10)
     return parser.parse_args()
 
 
@@ -101,16 +108,14 @@ def load(
     torch.set_default_tensor_type(torch.HalfTensor)
     model = Transformer(model_args)
 
-    embs = model.tok_embeddings.weight.data
-    emb_height, emb_width = embs.shape
-    new_embs = torch.ones(emb_height + 1, emb_width)
-    model.tok_embeddings.weight.data = new_embs
+    # emb_height, emb_width = model.tok_embeddings.weight.data.shape
+    # if checkpoint["tok_embeddings.weight"].shape[0] != emb_height:
+    #     model.tok_embeddings.weight.data = torch.ones(
+    #         checkpoint["tok_embeddings.weight"].shape[0], emb_width, device="cuda"
+    #     )
 
-    model.load_state_dict(checkpoint, strict=False)
-    model_size = 0
-    for i in model.parameters():
-        model_size += i.nelement() * i.element_size()
     torch.set_default_tensor_type(torch.FloatTensor)
+    model.load_state_dict(checkpoint, strict=False)
 
     generator = LLaMA(model, tokenizer)
     return generator

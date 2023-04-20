@@ -31,8 +31,14 @@ def main():
     local_rank, global_rank, world_size = setup_model_parallel()
     if global_rank > 0:
         sys.stdout = open(os.devnull, "w")
-        sys.stderr = open(os.devnull, "w")
     ckpt_dir = args.model_dir
+    output_path = Path(args.output_path)
+    if global_rank == 0:
+        output_path.mkdir(exist_ok=True, parents=True)
+
+    device = torch.device(local_rank)
+    # device = "cpu"
+
     generator = load(
         ckpt_dir=args.model_dir,
         tokenizer_path=args.tokenizer_path,
@@ -42,42 +48,68 @@ def main():
         max_seq_len=args.max_seq_len,
         max_batch_size=args.batch_size,
     )
-    device = torch.device(local_rank)
-    # device = "cpu"
+
     generator.model.to(device)
-    col_names = ["true_", "generated_"]
+    col_groups = ["true_", "generated_"]
     data = pd.read_csv(
-        args.data_path, index_col=0, sep="\t", on_bad_lines="skip", encoding="utf-8"
+        args.data_path,
+        index_col=0,
+        sep="\t",
+        on_bad_lines="skip",
+        encoding="utf-8",
+        lineterminator="\n",
     )
+    data = data.filter(regex="true|generated|prompts.*")
     data = data.loc[data.notna().all(axis=1), :]
-    generated_probs = {}
-    for col_name in col_names:
-        col_data = data.filter(regex=f"{col_name}.*")
-        all_colls = col_data.columns
-        dataset = PandasDataset(col_data)
+    if args.n_samples >= 1:
+        data = data.iloc[: args.n_samples, :]
 
+    dataset = PandasDataset(data.reset_index())
+
+    dl = torch.utils.data.DataLoader(
+        dataset, collate_fn=pandas_collate, batch_size=args.batch_size
+    )
+
+    for idx, batch in enumerate(dl):
+        generated_probs = {}
+        batch_save_path = output_path / f"test_detection_batch_{idx}.csv"
+        print(f"Start batch {idx}.")
+        if batch_save_path.exists():
+            continue
+        index = batch.pop("index")
+        prompts = batch.pop("prompts")
+        encoded_prompts = [
+            generator.tokenizer.encode(prompt, bos=True, eos=False)
+            for prompt in prompts
+        ]
+        start = time.time()
+        col_start = time.time()
         torch.distributed.barrier()
+        
+        for key, val in batch.items():
+            gathered_lists = [None for _ in range(world_size)]
+            if key not in generated_probs:
+                generated_probs[key] = []
+            full_probs = [i.tolist() for i in generator.generate_probs(val)]
+            torch.distributed.gather_object(
+                full_probs,
+                gathered_lists if global_rank == 0 else None,
+                dst=0
+            )
+            for prob_list in gathered_lists:
+                generated_probs[key] += prob_list 
+            col_time = time.time()
+            print(f"Col {key} done in {col_time - col_start} secs.")
+            col_start = col_time
 
-        dl = torch.utils.data.DataLoader(
-            dataset, collate_fn=pandas_collate, batch_size=args.batch_size
-        )
+        end = time.time()
+        print(f"Batch {idx} done in {end - start} secs.")
+        start = end
 
-        torch.distributed.barrier()
-
-        for batch in tqdm(dl):
-            for key, val in batch.items():
-                print(key)
-                if key in generated_probs:
-                    generated_probs[key] += [
-                        i.tolist() for i in generator.generate_probs(val)
-                    ]
-                else:
-                    generated_probs[key] = [
-                        i.tolist() for i in generator.generate_probs(val)
-                    ]
-
-    with open(args.output_path, "w") as of:
-        json.dump(generated_probs, of)
+        if global_rank == 0:
+            outdf = pd.DataFrame.from_dict(generated_probs)
+            outdf.index = index
+            outdf.to_csv(batch_save_path)
 
 
 if __name__ == "__main__":

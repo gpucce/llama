@@ -80,9 +80,10 @@ class LLaMA:
         self,
         prompts: List[str],
         max_gen_len: int = 1,
-        temperature: float = 0.8,
+        temperature: float = 0.0,
         top_p: float = 0.95,
         output_full_probs: bool = False,
+        remove_pad: bool = True
     ) -> List[str]:
         bsz = len(prompts)
         if hasattr(self.model, "module"):
@@ -140,8 +141,9 @@ class LLaMA:
         true_probs = []
 
         for prob, tok, mask in zip(probs, tokens, input_text_mask):
-            tok = tok[mask]
-            prob = prob[mask]
+            if remove_pad:
+                tok = tok[mask]
+                prob = prob[mask]
             true_probs.append(prob)
 
         return true_probs
@@ -152,7 +154,6 @@ def sample_top_p(probs, p):
     probs_sum = torch.cumsum(probs_sort, dim=-1)
     mask = probs_sum - probs_sort > p
     probs_sort[mask] = 0.0
-    print(probs_sort[~mask])
     probs_sort.div_(probs_sort.sum(dim=-1, keepdim=True))
     next_token = torch.multinomial(probs_sort, num_samples=1)
     next_token = torch.gather(probs_idx, -1, next_token)

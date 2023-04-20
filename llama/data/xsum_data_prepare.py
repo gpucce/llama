@@ -37,6 +37,11 @@ def main():
     top_p = args.top_p
     batch_size = args.batch_size
     output_path = args.output_path
+    data_path = args.data_path
+    n_samples = args.n_samples
+    col_name = args.col_name
+    max_seq_len = args.max_seq_len
+    tokenizer_path = args.tokenizer_path
 
     local_rank, global_rank, world_size = setup_model_parallel()
     if global_rank > 0:
@@ -56,40 +61,43 @@ def main():
     # torch.distributed.barrier()
     generator.model.to(torch.device(local_rank))
 
-    epoch = [i for i in ckpt_dir.split("/") if "epoch" in i][0]
-    file_name = "/home/users/giovannipuccetti/Data/CHANGE-it/test/change-it.ilgiornale.test_1000.csv"
-    ds = pd.read_csv(file_name, index_col=0)
+    ds = pd.read_csv(data_path, index_col=0)
     random.seed(42)
-    # idxs = random.sample(range(ds.shape[0]), 100)
-    # ds = ds.iloc[idxs, :]
+    if n_samples >= 1:
+        idxs = random.sample(range(ds.shape[0]), n_samples)
+        ds = ds.iloc[idxs, :]
     dataloader = torch.utils.data.DataLoader(
-        ds.full_text.to_list(), batch_size=batch_size
+        ds.loc[:, col_name].to_list(), batch_size=batch_size
     )
     all_prompts = []
     true_continuations = []
     generated_continuations = []
     start = time.time()
-    prompt_len = 64
-    max_gen_len = 128
+    prompt_len = 30
+    max_gen_len = 150
     start = time.time()
     for idx, prompts in enumerate(dataloader):
         prompt_tokens = [
             generator.tokenizer.encode(prompt, bos=True, eos=False)
             for prompt in prompts
         ]
+
         batch_true_continuations = [
             i[prompt_len : prompt_len + max_gen_len] for i in prompt_tokens
         ]
+
         true_continuations += [
             generator.tokenizer.decode(continuation)
             for continuation in batch_true_continuations
         ]
 
         batch_prompt_tokens = [i[:prompt_len] for i in prompt_tokens]
+
         batch_prompts = [
             generator.tokenizer.decode(prompt_token)
             for prompt_token in batch_prompt_tokens
         ]
+
         all_prompts += [
             generator.tokenizer.decode(prompt) for prompt in batch_prompt_tokens
         ]
@@ -106,6 +114,7 @@ def main():
             cont[len(prompt) :]
             for prompt, cont in zip(all_prompts, batch_generated_continuations)
         ]
+
         new_start = time.time()
         print(f"Step {idx} done in {new_start - start} secs.")
         start = new_start
@@ -113,11 +122,11 @@ def main():
     ds["prompts"] = all_prompts
     ds["true_continuations"] = true_continuations
     ds["generated_continuations"] = generated_continuations
-    data_source = Path(file_name).stem
+    data_source = Path(data_path).stem
     output_path = Path("data") / output_path
     output_path.mkdir(exist_ok=True, parents=True)
     ds = ds.loc[ds.notna().all(axis=1), :]
-    ds.to_csv(output_path / f"{data_source}_rephrased_{epoch}.csv", sep="\t")
+    ds.to_csv(output_path / f"{data_source}_rephrased.csv", sep="\t")
     elapsed = time.time() - start
 
     print(f"The process took: {elapsed} seconds.")

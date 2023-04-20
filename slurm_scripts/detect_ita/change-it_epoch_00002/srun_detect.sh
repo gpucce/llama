@@ -19,9 +19,9 @@ export MASTER_ADDR=$master_addr
 
 cd /home/users/giovannipuccetti/Repos/llama
 srun --cpu_bind=v --accel-bind=gn python -u -m llama.scripts.detect_llama \
-    --model-dir="./runs/news_fine_tune/run_04-06-2023-11-51-03/epoch_00006/model" \
+    --model-dir="./runs/news_fine_tune/run_04-06-2023-11-51-03/epoch_00002/model" \
     --tokenizer-path="/home/users/giovannipuccetti/Models/65B/tokenizer.model" \
-    --batch-size=16 \
-    --data-path="/home/users/giovannipuccetti/Data/CHANGE-it/test/change-it.ilgiornale.test_1000_news_epoch_00006_synthetic.csv" \
-    --output-path="data/test_detection.json" \
+    --batch-size=64 \
+    --data-path="/home/users/giovannipuccetti/Data/CHANGE-it/test/change-it.ilgiornale.test_1000_news_epoch_00002_synthetic.csv" \
+    --output-path="data/news_fine_tune/run_04-06-2023-11-51-03/epoch_00002/" \
     --max-seq-len=256
