@@ -1,5 +1,5 @@
 import sys
-from llama_on_slurm import main
+from .llama_on_slurm import main
 from fire import Fire
 
 if __name__ == "__main__":

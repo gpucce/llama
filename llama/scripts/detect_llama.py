@@ -78,26 +78,14 @@ def main():
             continue
         index = batch.pop("index")
         prompts = batch.pop("prompts")
-        encoded_prompts = [
-            generator.tokenizer.encode(prompt, bos=True, eos=False)
-            for prompt in prompts
-        ]
         start = time.time()
         col_start = time.time()
         torch.distributed.barrier()
-        
         for key, val in batch.items():
-            gathered_lists = [None for _ in range(world_size)]
             if key not in generated_probs:
                 generated_probs[key] = []
             full_probs = [i.tolist() for i in generator.generate_probs(val)]
-            torch.distributed.gather_object(
-                full_probs,
-                gathered_lists if global_rank == 0 else None,
-                dst=0
-            )
-            for prob_list in gathered_lists:
-                generated_probs[key] += prob_list 
+            generated_probs[key] += full_probs
             col_time = time.time()
             print(f"Col {key} done in {col_time - col_start} secs.")
             col_start = col_time
@@ -109,8 +97,8 @@ def main():
         if global_rank == 0:
             outdf = pd.DataFrame.from_dict(generated_probs)
             outdf.index = index
+            assert outdf.shape[0] == args.batch_size
             outdf.to_csv(batch_save_path)
-
-
+            
 if __name__ == "__main__":
     main()

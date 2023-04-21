@@ -31,7 +31,7 @@ class LLaMA:
 
         if prompt_tokens is None:
             prompt_tokens = [
-                self.tokenizer.encode(x, bos=True, eos=False) for x in prompts
+                self.tokenizer.encode(x, bos=True, eos=False)[:,params.max_seq_len] for x in prompts
             ]
 
         min_prompt_size = min([len(t) for t in prompt_tokens])
@@ -92,7 +92,7 @@ class LLaMA:
             params = self.model.params
         assert bsz <= params.max_batch_size, (bsz, params.max_batch_size)
 
-        prompt_tokens = [self.tokenizer.encode(x, bos=True, eos=False) for x in prompts]
+        prompt_tokens = [self.tokenizer.encode(x, bos=False, eos=False) for x in prompts]
         labels = [prompt[1:] for prompt in prompt_tokens]
         prompt_tokens = [prompt[:-1] for prompt in prompt_tokens]
 

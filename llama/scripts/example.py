@@ -63,8 +63,6 @@ def load(
     return generator
 
 
-Buongiorno
-
 
 def main(
     ckpt_dir: str,

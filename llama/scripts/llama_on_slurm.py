@@ -46,12 +46,11 @@ def main(
         max_batch_size,
     )
     torch.distributed.barrier()
-    if local_rank != 0:
-        time.sleep(5)
     generator.model.to(torch.device(local_rank))
+    
 
     results = generator.generate(
-        prompts, max_gen_len=256, temperature=temperature, top_p=top_p
+        prompts, max_gen_len=50, temperature=temperature, top_p=top_p
     )
 
     if global_rank == 0:

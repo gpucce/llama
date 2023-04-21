@@ -46,8 +46,11 @@ def main():
 
     df = pd.read_csv(data_path, index_col=0, sep="\t")
     df = df.loc[df.notna().all(axis=1), :]
+    df = df.loc[(df != "").all(axis=1), :]
     if args.n_samples > 0:
         df = df.iloc[: args.n_samples, :]
+        
+
     model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
     # model = AutoModelForMaskedLM.from_pretrained(model_name)
     # model = AutoModelForCausalLM.from_pretrained(model_name)
@@ -56,17 +59,6 @@ def main():
     # collator = DefaultDataCollator()
     # collator = DataCollatorForLanguageModeling(hftok, mlm_probability=0.0)
     # collator = DataCollatorForWholeWordMask(hftok, mlm_probability=0.30)
-
-    def tokenize(x, return_tensors=None):
-        return hftok(
-            x,
-            padding="max_length",
-            truncation=True,
-            max_length=192,
-            # return_special_tokens_mask=True,
-            return_tensors=return_tensors,
-            return_attention_mask=True,
-        )
 
     device = torch.device(device_id)
     model.to(device)
@@ -78,13 +70,29 @@ def main():
         for idx in range(n_modifications):
             dl = torch.utils.data.DataLoader(
                 df.loc[:, col_name].to_list(),
-                collate_fn=lambda x: [tokenize_and_mask(process_spaces(i)) for i in x],
+                collate_fn=lambda x: [process_spaces(i) for i in x],
                 batch_size=args.batch_size,
             )
             new_col = []
+            
             for batch in tqdm(dl):
-                fills = replace_masks(batch, model, hftok, device=device)
-                new_texts = apply_extracted_fills(batch, extract_fills(fills))
+                
+                tokenized_batch = [tokenize_and_mask(i) for i in batch]
+                fills = replace_masks(tokenized_batch, model, hftok, device=device)
+                print(fills)
+                extracted_fills = extract_fills(fills)
+                
+                new_texts = apply_extracted_fills(tokenized_batch, extracted_fills)
+                
+                count = 0
+                while "" in new_texts and count < 3:
+                    broken_idxs = [idx for idx, x in enumerate(new_texts) if x == ""]
+                    new_tokenized_batch = [tokenize_and_mask(i) for idx, i in enumerate(batch) if idx in broken_idxs]
+                    new_fills = replace_masks(new_tokenized_batch, model, hftok, device=device)
+                    new_new_texts = apply_extracted_fills(new_tokenized_batch, extract_fills(new_fills))
+                    for idx, x in zip(broken_idxs, new_new_texts):
+                        new_texts[idx] = x
+                    count += 1
 
                 new_col += new_texts
 
@@ -97,7 +105,6 @@ def main():
 
             df = pd.concat([df, new_col_series], axis=1)
             df = df.loc[new_col_series.apply(len) > 0, :]
-            print(df.filter(regex="true|generated.*").describe())
 
     df.to_csv(output_path, sep="\t", encoding="utf-8", lineterminator="\n")
 
