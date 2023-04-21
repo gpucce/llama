@@ -1,5 +1,5 @@
 #!/bin/bash -x
-#SBATCH --nodes=8
+#SBATCH --nodelist=ben[07-08]
 #SBATCH --gres=gpu:4
 #SBATCH --ntasks-per-node=4
 #SBATCH --cpus-per-task=4
@@ -20,8 +20,8 @@ export MASTER_ADDR=$master_addr
 
 cd /home/users/giovannipuccetti/Repos/llama
 srun --cpu_bind=v --accel-bind=gn python -u -m llama.scripts.llama_on_slurm_eng \
-    --ckpt-dir ~/Models/65B_spread_32/ \
-    --tokenizer-path ~/Models/65B_spread_32/tokenizer.model \
+    --ckpt-dir ~/Models/65B/ \
+    --tokenizer-path ~/Models/65B/tokenizer.model \
     --max-batch-size=8 \
     --max-seq-len=1000 \
     --output_path="pretrained_65B_eng"

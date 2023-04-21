@@ -1,5 +1,5 @@
 #!/bin/bash -x
-#SBATCH --nodes=1
+#SBATCH --nodelist=ben04
 #SBATCH --gres=gpu:2
 #SBATCH --ntasks-per-node=2
 #SBATCH --cpus-per-task=4
@@ -24,4 +24,4 @@ srun --cpu_bind=v --accel-bind=gn python -u -m llama.scripts.detect_llama \
     --batch-size=4 \
     --data-path="/home/users/giovannipuccetti/Data/xsum/xsum_test_synthetic_1000_llama13b.csv" \
     --output-path="data/llama13b/" \
-    --max-seq-len=256
+    --max-seq-len=192
