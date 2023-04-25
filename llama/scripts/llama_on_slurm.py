@@ -47,7 +47,6 @@ def main(
     )
     torch.distributed.barrier()
     generator.model.to(torch.device(local_rank))
-    
 
     results = generator.generate(
         prompts, max_gen_len=50, temperature=temperature, top_p=top_p

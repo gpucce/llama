@@ -35,6 +35,12 @@ from ..data_utils import (
 def main():
     args = custom_parse_args()
 
+    if (
+        int(os.environ.get("SLURM_PROCID", -1)) > 0
+        or int(os.environ.get("SLURM_LOCALID", -1)) > 0
+    ):
+        return
+
     data_path = args.data_path
     col_names = args.col_names
     output_path = args.output_path
@@ -42,6 +48,7 @@ def main():
     n_modifications = args.n_modifications
     top_k = args.top_k
     model_name = args.modifier_model
+    pct_mask = args.pct_mask
     torch.set_default_tensor_type(torch.FloatTensor)
 
     df = pd.read_csv(data_path, index_col=0, sep="\t")
@@ -49,7 +56,6 @@ def main():
     df = df.loc[(df != "").all(axis=1), :]
     if args.n_samples > 0:
         df = df.iloc[: args.n_samples, :]
-        
 
     model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
     # model = AutoModelForMaskedLM.from_pretrained(model_name)
@@ -65,35 +71,44 @@ def main():
     all_cols = {}
     warper = TopKLogitsWarper(top_k=top_k)
     for col_name in col_names.split(":"):
-        df.loc[:, col_name] = df.loc[:, col_name].str.replace("\n", " ")
+        df.loc[:, col_name] = (
+            df.loc[:, col_name].apply(process_spaces).str.replace("\n", " ")
+        )
         start = time.time()
         for idx in range(n_modifications):
             dl = torch.utils.data.DataLoader(
                 df.loc[:, col_name].to_list(),
-                collate_fn=lambda x: [process_spaces(i) for i in x],
+                collate_fn=lambda x: [i for i in x],
                 batch_size=args.batch_size,
             )
             new_col = []
-            
+
             for batch in tqdm(dl):
-                
                 tokenized_batch = [tokenize_and_mask(i) for i in batch]
                 fills = replace_masks(tokenized_batch, model, hftok, device=device)
-                print(fills)
                 extracted_fills = extract_fills(fills)
-                
+
                 new_texts = apply_extracted_fills(tokenized_batch, extracted_fills)
-                
+
                 count = 0
                 while "" in new_texts and count < 3:
                     broken_idxs = [idx for idx, x in enumerate(new_texts) if x == ""]
-                    new_tokenized_batch = [tokenize_and_mask(i) for idx, i in enumerate(batch) if idx in broken_idxs]
-                    new_fills = replace_masks(new_tokenized_batch, model, hftok, device=device)
-                    new_new_texts = apply_extracted_fills(new_tokenized_batch, extract_fills(new_fills))
-                    for idx, x in zip(broken_idxs, new_new_texts):
-                        new_texts[idx] = x
+                    new_tokenized_batch = [
+                        tokenize_and_mask(i, pct=0.3)
+                        for idx, i in enumerate(batch)
+                        if idx in broken_idxs
+                    ]
+                    new_fills = replace_masks(
+                        new_tokenized_batch, model, hftok, device=device
+                    )
+                    new_new_texts = apply_extracted_fills(
+                        new_tokenized_batch, extract_fills(new_fills)
+                    )
+                    for batch_idx, x in zip(broken_idxs, new_new_texts):
+                        new_texts[batch_idx] = x
                     count += 1
 
+                new_texts = [process_spaces(text) for text in new_texts]
                 new_col += new_texts
 
             new_start = time.time()

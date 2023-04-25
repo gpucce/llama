@@ -83,7 +83,7 @@ class LLaMA:
         temperature: float = 0.0,
         top_p: float = 0.95,
         output_full_probs: bool = False,
-        remove_pad: bool = True
+        remove_pad: bool = True,
     ) -> List[str]:
         bsz = len(prompts)
         if hasattr(self.model, "module"):
@@ -92,7 +92,10 @@ class LLaMA:
             params = self.model.params
         assert bsz <= params.max_batch_size, (bsz, params.max_batch_size)
 
-        prompt_tokens = [self.tokenizer.encode(x, bos=False, eos=False)[:params.max_seq_len] for x in prompts]
+        prompt_tokens = [
+            self.tokenizer.encode(x, bos=True, eos=False)[: params.max_seq_len]
+            for x in prompts
+        ]
         labels = [prompt[1:] for prompt in prompt_tokens]
         prompt_tokens = [prompt[:-1] for prompt in prompt_tokens]
 
@@ -119,10 +122,10 @@ class LLaMA:
             logits = self.model.detect_forward(tokens[:, prev_pos:cur_pos], prev_pos)
 
             if temperature > 0:
-                _probs = torch.softmax(logits / temperature, dim=-1)
+                _probs = torch.softmax(logits.to(torch.float32) / temperature, dim=-1)
                 next_token = sample_top_p(_probs[:, -1], top_p)
             else:
-                _probs = torch.softmax(logits, dim=-1)
+                _probs = torch.softmax(logits.to(torch.float32), dim=-1)
                 next_token = torch.argmax(logits[:, -1, :], dim=-1)
 
             for k in range(bsz):

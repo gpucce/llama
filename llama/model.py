@@ -277,7 +277,7 @@ class Transformer(nn.Module):
         labels: Optional[torch.Tensor] = None,
     ):
         h = self._forward(tokens, start_pos=start_pos)
-        emb_output = self.output(h)
+        emb_output = self.output(h).to(torch.float32)
         loss = None
         if labels is not None:
             loss = self.loss(emb_output.permute(0, 2, 1), labels)
@@ -287,7 +287,7 @@ class Transformer(nn.Module):
     @torch.inference_mode()
     def alternative_forward(self, tokens, start_pos: int = 0, labels=None):
         h = self._forward(tokens, start_pos=start_pos)
-        emb_output = self.output(h)
+        emb_output = self.output(h).to(torch.float32)
         loss = None
         if labels is not None:
             loss = self.loss(

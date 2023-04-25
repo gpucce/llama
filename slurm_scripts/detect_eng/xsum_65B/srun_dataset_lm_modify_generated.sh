@@ -19,7 +19,7 @@ export MASTER_ADDR=$master_addr
 
 cd /home/users/giovannipuccetti/Repos/llama
 srun --cpu_bind=v --accel-bind=gn python -u -m llama.data.dataset_lm_modification \
-    --data-path="./data/llama65b/xsum_test_rephrased.csv" \
+    --data-path="/home/users/giovannipuccetti/Data/xsum/llama65b_rephrased.csv" \
     --col-names="generated_continuations" \
     --output-path="/home/users/giovannipuccetti/Data/xsum/xsum_test_synthetic_1000_llama65b_generated_continuations.csv" \
     --device-id 0 \

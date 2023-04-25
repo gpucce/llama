@@ -63,7 +63,6 @@ def load(
     return generator
 
 
-
 def main(
     ckpt_dir: str,
     tokenizer_path: str,

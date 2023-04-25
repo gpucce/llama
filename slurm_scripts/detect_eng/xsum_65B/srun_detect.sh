@@ -21,7 +21,7 @@ cd /home/users/giovannipuccetti/Repos/llama
 srun --cpu_bind=v --accel-bind=gn python -u -m llama.scripts.detect_llama \
     --model-dir="/home/users/giovannipuccetti/Models/65B_spread_32" \
     --tokenizer-path="/home/users/giovannipuccetti/Models/65B/tokenizer.model" \
-    --batch-size=64 \
+    --batch-size=16 \
     --data-path="/home/users/giovannipuccetti/Data/xsum/xsum_test_synthetic_1000_llama65b.csv" \
     --output-path="data/llama65b/" \
     --max-seq-len=196

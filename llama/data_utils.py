@@ -42,7 +42,7 @@ def replace_masks(texts, model, tokenizer, device):
     return tokenizer.batch_decode(outputs, skip_special_tokens=False)
 
 
-def tokenize_and_mask(text, span_length=2, pct=1.0, buffer_size=1, ceil_pct=False):
+def tokenize_and_mask(text, span_length=2, pct=0.3, buffer_size=1, ceil_pct=False):
     tokens = text.split(" ")
     mask_string = "<<<mask>>>"
 
@@ -79,7 +79,7 @@ def tokenize_and_mask(text, span_length=2, pct=1.0, buffer_size=1, ceil_pct=Fals
 def extract_fills(texts):
     # remove <pad> from beginning of each text
     texts = [x.replace("<pad>", "").replace("</s>", "").strip() for x in texts]
-    
+
     # return the text in between each matched mask token
     extracted_fills = [PATTERN.split(x)[1:-1] for x in texts]
 
@@ -107,9 +107,12 @@ def apply_extracted_fills(masked_texts, extracted_fills):
     return texts
 
 
-def process_spaces(story):
-    return (
-        story.replace(" ,", ",")
+def process_spaces(text):
+    # text = re.sub("[^ a-zA-Z,.:;!?]", " ", text)
+    # text = re.sub(" +", " ", text)
+
+    text = (
+        text.replace(" ,", ",")
         .replace(" .", ".")
         .replace(" ?", "?")
         .replace(" !", "!")
@@ -131,3 +134,5 @@ def process_spaces(story):
         .replace("\n ", "\n")
         .strip()
     )
+
+    return text

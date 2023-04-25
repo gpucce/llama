@@ -72,6 +72,7 @@ def custom_parse_args():
     parser.add_argument("--n-samples", type=int, default=-1)
     parser.add_argument("--n-modifications", type=int, default=5)
     parser.add_argument("--output-path", type=str, default="test_output")
+    parser.add_argument("--pct-mask", type=float, default=1.0)
     parser.add_argument("--resume", type=str, default=None)
     parser.add_argument("--steps-per-epoch", type=int, default=10000)
     parser.add_argument("--temperature", type=float, default=0.8)

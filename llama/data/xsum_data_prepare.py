@@ -26,6 +26,7 @@ from fairscale.nn.data_parallel import FullyShardedDataParallel as FSDP
 from llama import ModelArgs, Transformer, Tokenizer, load, setup_model_parallel
 
 from ..utils import custom_parse_args
+from ..data_utils import process_spaces
 
 
 def main():
@@ -74,33 +75,18 @@ def main():
     generated_continuations = []
     start = time.time()
     prompt_len = 30
-    max_gen_len = 150
+    max_gen_len = 300
+    actual_gen_len = 150
     start = time.time()
     for idx, prompts in enumerate(dataloader):
-        prompt_tokens = [
-            generator.tokenizer.encode(prompt, bos=True, eos=False)
+        prompts = [process_spaces(prompt).split(" ") for prompt in prompts]
+        true_continuations += [
+            " ".join(prompt[prompt_len : prompt_len + actual_gen_len])
             for prompt in prompts
         ]
+        prompts = [" ".join(prompt[:prompt_len]) for prompt in prompts]
 
-        batch_true_continuations = [
-            i[prompt_len : prompt_len + max_gen_len] for i in prompt_tokens
-        ]
-
-        true_continuations += [
-            generator.tokenizer.decode(continuation)
-            for continuation in batch_true_continuations
-        ]
-
-        batch_prompt_tokens = [i[:prompt_len] for i in prompt_tokens]
-
-        batch_prompts = [
-            generator.tokenizer.decode(prompt_token)
-            for prompt_token in batch_prompt_tokens
-        ]
-
-        all_prompts += [
-            generator.tokenizer.decode(prompt) for prompt in batch_prompt_tokens
-        ]
+        all_prompts += prompts
 
         batch_generated_continuations = generator.generate(
             prompts,
@@ -111,8 +97,8 @@ def main():
         )
 
         generated_continuations += [
-            cont[len(prompt) :]
-            for prompt, cont in zip(all_prompts, batch_generated_continuations)
+            " ".join(continuation.split(" ")[:actual_gen_len])
+            for continuation in batch_generated_continuations
         ]
 
         new_start = time.time()
@@ -123,10 +109,10 @@ def main():
     ds["true_continuations"] = true_continuations
     ds["generated_continuations"] = generated_continuations
     data_source = Path(data_path).stem
-    output_path = Path("data") / output_path
-    output_path.mkdir(exist_ok=True, parents=True)
+    output_path = Path(output_path)
+    output_path.parent.mkdir(exist_ok=True, parents=True)
     ds = ds.loc[ds.notna().all(axis=1), :]
-    ds.to_csv(output_path / f"{data_source}_rephrased.csv", sep="\t")
+    ds.to_csv(output_path, sep="\t")
     elapsed = time.time() - start
 
     print(f"The process took: {elapsed} seconds.")
