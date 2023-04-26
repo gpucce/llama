@@ -24,4 +24,4 @@ srun --cpu_bind=v --accel-bind=gn python -u -m llama.scripts.detect_llama \
     --batch-size=16 \
     --data-path="/home/users/giovannipuccetti/Data/xsum/xsum_test_synthetic_1000_llama65b.csv" \
     --output-path="data/llama65b/" \
-    --max-seq-len=196
+    --max-seq-len=256

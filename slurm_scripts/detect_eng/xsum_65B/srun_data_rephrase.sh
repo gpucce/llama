@@ -26,4 +26,4 @@ srun --cpu_bind=v --accel-bind=gn python -u -m llama.data.xsum_data_prepare \
     --max-seq-len=256 \
     --output-path="/home/users/giovannipuccetti/Data/xsum/llama65b_rephrased.csv" \
     --col-name="document" \
-    --n-samples 100
+    --n-samples 1000
