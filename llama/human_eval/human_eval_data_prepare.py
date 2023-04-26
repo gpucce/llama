@@ -115,13 +115,17 @@ for n_split in range(n_questionaries):
         future_df1[key] = future_df1[key][1:]
     for key in list(future_df2.keys()):
         future_df2[key] = future_df2[key][1:]
-
+    
+    future_df1["order"] = range(q_per_questionary)
+    future_df2["order"] = range(q_per_questionary)
+    
     shuffled_df1 = {}
     for key, val in future_df1.items():
         shuffled_df1[key] = [val[idx] for idx in _SHUFFLING_ORDER]
     shuffled_df2 = {}
     for key, val in future_df2.items():
         shuffled_df2[key] = [val[idx] for idx in _SHUFFLING_ORDER]
+    
     if n_split == 0:
         assert shuffled_df1["Testo domanda"][6] == control_q, "missing control sequence"
         
