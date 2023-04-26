@@ -50,7 +50,7 @@ def main():
     )
 
     generator.model.to(device)
-    generator.model.to(torch.float32)
+    # generator.model.to(torch.float32)
     col_groups = ["true_", "generated_"]
     data = pd.read_csv(
         args.data_path,
@@ -96,6 +96,7 @@ def main():
         start = end
 
         if global_rank == 0:
+            output_path.mkdir(exist_ok=True, parents=True)
             outdf = pd.DataFrame.from_dict(generated_probs)
             outdf.index = index
             outdf.to_csv(batch_save_path)

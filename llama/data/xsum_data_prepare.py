@@ -62,8 +62,19 @@ def main():
     # torch.distributed.barrier()
     generator.model.to(torch.device(local_rank))
 
-    ds = pd.read_csv(data_path, index_col=0)
     random.seed(42)
+    prompt_len = 30
+    max_gen_len = 300
+    actual_gen_len = 150
+
+    ds = pd.read_csv(data_path, index_col=0)
+    ds = ds.loc[ds.notna().all(axis=1), :]
+    ds = ds.loc[
+        ds.loc[:, col_name].apply(
+            lambda x: len(x.split()) > (prompt_len + actual_gen_len)
+        ),
+        :,
+    ]
     if n_samples >= 1:
         idxs = random.sample(range(ds.shape[0]), n_samples)
         ds = ds.iloc[idxs, :]
@@ -74,12 +85,10 @@ def main():
     true_continuations = []
     generated_continuations = []
     start = time.time()
-    prompt_len = 30
-    max_gen_len = 300
-    actual_gen_len = 150
+
     start = time.time()
     for idx, prompts in enumerate(dataloader):
-        prompts = [process_spaces(prompt).split(" ") for prompt in prompts]
+        prompts = [process_spaces(prompt).split() for prompt in prompts]
         true_continuations += [
             " ".join(prompt[prompt_len : prompt_len + actual_gen_len])
             for prompt in prompts
@@ -90,14 +99,13 @@ def main():
 
         batch_generated_continuations = generator.generate(
             prompts,
-            prompt_tokens=batch_prompt_tokens,
             max_gen_len=max_gen_len,
             temperature=temperature,
             top_p=top_p,
         )
 
         generated_continuations += [
-            " ".join(continuation.split(" ")[:actual_gen_len])
+            " ".join(continuation.split()[prompt_len : prompt_len + actual_gen_len])
             for continuation in batch_generated_continuations
         ]
 
