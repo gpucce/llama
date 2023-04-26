@@ -130,5 +130,5 @@ for n_split in range(n_questionaries):
     dfs1.append(shuffled_df1)
     dfs2.append(shuffled_df2)
 
-    pd.DataFrame.from_dict(shuffled_df1).to_csv(f"./llama/human_eval/output/human_eval_df1_{n_split}.csv", encoding="utf-8")
-    pd.DataFrame.from_dict(shuffled_df2).to_csv(f"./llama/human_eval/output/human_eval_df2_{n_split}.csv", encoding="utf-8")
+    pd.DataFrame.from_dict(shuffled_df1).to_csv(f"./llama/human_eval/data/human_eval_df1_{n_split}.csv", encoding="utf-8")
+    pd.DataFrame.from_dict(shuffled_df2).to_csv(f"./llama/human_eval/data/human_eval_df2_{n_split}.csv", encoding="utf-8")
