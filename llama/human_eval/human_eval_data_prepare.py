@@ -31,7 +31,7 @@ _SHUFFLING_ORDER = [
 
 
 def template(txta, txtb):
-    txta = " ".join(txta.split(" ")[:-1]) + "..."
+    # txta = " ".join(txta.split(" ")[:-1]) + "..."
     txtb = " ".join(txtb.split(" ")[:-1]) + "..."
     txta = process_spaces(txta)
     txtb = process_spaces(txtb)
