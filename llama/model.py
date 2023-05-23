@@ -31,7 +31,9 @@ class ModelArgs:
 
     max_batch_size: int = 32
     max_seq_len: int = 2048
-    do_cache: Optional[int] = None
+    do_cache: Optional[bool] = None
+    do_lora: bool = False
+    lora_r: int = 32
 
 
 class RMSNorm(torch.nn.Module):
@@ -83,7 +85,10 @@ class Attention(nn.Module):
 
         self.n_local_heads = args.n_heads // fs_init.get_model_parallel_world_size()
         self.head_dim = args.dim // args.n_heads
-
+        self.do_cache = args.do_cache
+        self.do_lora = args.do_lora
+        
+        
         self.wq = ColumnParallelLinear(
             args.dim,
             args.n_heads * self.head_dim,
@@ -91,6 +96,23 @@ class Attention(nn.Module):
             gather_output=False,
             init_method=lambda x: x,
         )
+
+        if self.do_lora:
+            self.lora_wq_b = ColumnParallelLinear(
+                args.dim,
+                args.lora_r,
+                bias=False,
+                gather_output=True,
+                init_method=lambda x: x.zero_(),
+            )
+            self.lora_wq_a = ColumnParallelLinear(
+                args.lora_r,
+                args.n_heads * self.head_dim,
+                bias=False,
+                gather_output=False,
+                init_method=lambda x: x.normal_(),
+            )
+
         self.wk = ColumnParallelLinear(
             args.dim,
             args.n_heads * self.head_dim,
@@ -105,6 +127,22 @@ class Attention(nn.Module):
             gather_output=False,
             init_method=lambda x: x,
         )
+        if self.do_lora:
+            self.lora_wv_b = ColumnParallelLinear(
+                args.dim,
+                args.lora_r,
+                bias=False,
+                gather_output=True,
+                init_method=lambda x: x.zero_(),
+            )
+            self.lora_wv_a = ColumnParallelLinear(
+                args.lora_r,
+                args.n_heads * self.head_dim,
+                bias=False,
+                gather_output=False,
+                init_method=lambda x: x.normal_(),
+            )
+
         self.wo = RowParallelLinear(
             args.n_heads * self.head_dim,
             args.dim,
@@ -112,7 +150,7 @@ class Attention(nn.Module):
             input_is_parallel=True,
             init_method=lambda x: x,
         )
-        self.do_cache = args.do_cache
+
         if self.do_cache:
             self.cache_k = torch.zeros(
                 (
@@ -140,6 +178,11 @@ class Attention(nn.Module):
     ):
         bsz, seqlen, _ = x.shape
         xq, xk, xv = self.wq(x), self.wk(x), self.wv(x)
+        if self.do_lora:
+            _lora_xq, _lora_xv = self.lora_wq_b(x), self.lora_wv_b(x)
+            lora_xq, lora_xv = self.lora_wq_a(_lora_xq), self.lora_wv_a(_lora_xv)
+            xq += lora_xq
+            xv += lora_xv
 
         xq = xq.view(bsz, seqlen, self.n_local_heads, self.head_dim)
         xk = xk.view(bsz, seqlen, self.n_local_heads, self.head_dim)
@@ -277,7 +320,7 @@ class Transformer(nn.Module):
         labels: Optional[torch.Tensor] = None,
     ):
         h = self._forward(tokens, start_pos=start_pos)
-        emb_output = self.output(h).to(torch.float32)
+        emb_output = self.output.to(torch.float32)(h.to(torch.float32))
         loss = None
         if labels is not None:
             loss = self.loss(emb_output.permute(0, 2, 1), labels)
@@ -287,7 +330,7 @@ class Transformer(nn.Module):
     @torch.inference_mode()
     def alternative_forward(self, tokens, start_pos: int = 0, labels=None):
         h = self._forward(tokens, start_pos=start_pos)
-        emb_output = self.output(h).to(torch.float32)
+        emb_output = self.output(h)
         loss = None
         if labels is not None:
             loss = self.loss(
@@ -298,12 +341,12 @@ class Transformer(nn.Module):
 
     @torch.inference_mode()
     def generation_forward(self, tokens: torch.Tensor, start_pos: int):
-        h = self._forward(tokens, start_pos)
-        output = self.output(h[:, -1, :])  # only compute last logits
+        h = self._forward(tokens, start_pos).to(torch.float32)
+        output = self.output.to(torch.float32)(h[:, -1, :])  # only compute last logits
         return output.float()
 
     @torch.inference_mode()
     def detect_forward(self, tokens: torch.Tensor, start_pos: int = 0):
         h = self._forward(tokens, start_pos)
-        output = self.output(h)
+        output = self.output.to(torch.float32)(h.to(torch.float32))
         return output.float()

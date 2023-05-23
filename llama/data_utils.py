@@ -1,9 +1,12 @@
 from torch.utils.data import Dataset
 import numpy as np
 import re
+import json
+from random import shuffle
+from pathlib import Path
+import torch
 
 PATTERN = re.compile(r"<extra_id_\d+>")
-
 
 class PandasDataset(Dataset):
     def __init__(self, pd_data):
@@ -27,12 +30,12 @@ def count_masks(texts):
 
 
 # replace each masked span with a sample from T5 mask_model
-def replace_masks(texts, model, tokenizer, device):
+def replace_masks(texts, model, tokenizer):
     n_expected = count_masks(texts)
     stop_id = tokenizer.encode(f"<extra_id_{max(n_expected)}>")[0]
-    tokens = tokenizer(texts, return_tensors="pt", padding=True).to(device)
+    tokens = tokenizer(texts, return_tensors="pt", padding=True, truncation=True, max_length=512)
     outputs = model.generate(
-        **tokens,
+        **{i:j.to("cuda") for i,j in tokens.items()},
         max_length=150,
         do_sample=True,
         top_p=1.0,
@@ -136,3 +139,77 @@ def process_spaces(text):
     )
 
     return text
+
+
+def _count_file_lines(data_path):
+    with open(data_path) as f:
+        nlines = sum(1 for i in f)
+    return nlines
+
+class CustomTrainDataLoader:
+    def __init__(
+        self, tokenizer, data_path, n_epochs, max_seq_len=512, batch_size=1, max_samples=None,
+    ):
+        self.tokenizer = tokenizer
+        self.data_path = Path(data_path)
+        self.n_epochs = n_epochs
+        self.max_seq_len = max_seq_len
+        self.batch_size = batch_size
+        self.max_samples = None
+
+        self.data_files = self.data_path.iterdir()
+        data_path = next(self.data_files)
+        self._n_samples = _count_file_lines(data_path)
+        self.data = open(data_path)
+        
+
+        self.global_samples_done = 0
+        self.samples_done = 0
+        self.epochs_done = 0
+
+
+    def __iter__(self):
+        return self
+
+    def _reopen(self):
+        self.close()
+        self.epochs_done += 1
+        print(self.epochs_done)
+        if self.epochs_done >= self.n_epochs:
+            raise StopIteration
+
+        try:
+            data_path = next(self.data_files)
+        except StopIteration as e:
+            self.data_files = self.data_path.iterdir()
+            data_path = next(self.data_files)
+
+        self._n_samples = _count_file_lines(data_path)
+        self.data = open(data_path)
+        self.samples_done = 0
+    
+    def __next__(self):
+        new_batch = []
+        while True:
+            if self.samples_done == self._n_samples:
+                self._reopen()
+
+            if len(new_batch) == self.batch_size:
+                break
+
+            new_sample = json.loads(next(self.data))
+            self.global_samples_done += 1
+            self.samples_done += 1
+            
+            if self.max_samples is not None and self.global_samples_done >= self.max_samples:
+                raise StopIteration
+
+            if len(new_sample) == self.max_seq_len:
+                new_batch.append(new_sample)
+            else:
+                continue
+
+        return torch.tensor(new_batch, dtype=int)
+
+    def close(self):
+        self.data.close()

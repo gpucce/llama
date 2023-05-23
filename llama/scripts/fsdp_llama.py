@@ -5,13 +5,13 @@ from tqdm.auto import tqdm
 
 
 def main():
-    n_splits = 8
-    multiplier = 8
+    n_splits = 1
+    multiplier = 16
     vertical = ["wq", "wk", "wv", "w1", "w3", "output"]
     for split in range(n_splits):
         new_params = [{} for _ in range(multiplier)]
         params = torch.load(
-            f"/home/users/giovannipuccetti/Models/65B/consolidated.{split:02}.pth",
+            f"/home/users/giovannipuccetti/Models/13B/consolidated.{split:02}.pth",
             map_location="cpu",
         )
         for i in tqdm(params):
@@ -48,7 +48,7 @@ def main():
             n = multiplier * split + split_id
             torch.save(
                 new_params[split_id],
-                f"/home/users/giovannipuccetti/Models/65B_spread_64/consolidated.{n:02}.pth",
+                f"/home/users/giovannipuccetti/Models/7B_spread_16/consolidated.{n:02}.pth",
             )
 
 
