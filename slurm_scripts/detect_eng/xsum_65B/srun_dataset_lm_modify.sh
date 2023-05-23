@@ -1,7 +1,7 @@
 #!/bin/bash -x
-#SBATCH --nodelist=ben04
-#SBATCH --gres=gpu:1
-#SBATCH --ntasks-per-node=1
+#SBATCH --nodes=1
+#SBATCH --gres=gpu:4
+#SBATCH --ntasks-per-node=4
 #SBATCH --cpus-per-task=4
 #SBATCH --wait-all-nodes=1
 #SBATCH --job-name=llama
@@ -22,10 +22,8 @@ srun --cpu_bind=v --accel-bind=gn python -u -m llama.data.dataset_lm_modificatio
     --data-path="/home/users/giovannipuccetti/Data/xsum/llama65b_rephrased.csv" \
     --col-names="true_continuations:generated_continuations" \
     --output-path="/home/users/giovannipuccetti/Data/xsum/xsum_test_synthetic_1000_llama65b.csv" \
-    --device-id 0 \
-    --n-modifications 50 \
-    --batch-size 32 \
-    --top-k 1 \
-    --modifier-model="t5-3b" \
-    --n-samples 1000
+    --n-modifications 100 \
+    --batch-size 6 \
+    --modifier-model="t5-11b" \
+    --n-samples 100
     

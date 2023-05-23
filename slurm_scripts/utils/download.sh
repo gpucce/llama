@@ -1,0 +1,1 @@
+python -e "from datasets import load_dataset; load_dataset('wikipedia')"

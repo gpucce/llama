@@ -24,6 +24,6 @@ srun --cpu_bind=v --accel-bind=gn python -u -m llama.data.xsum_data_prepare \
     --tokenizer-path="/home/users/giovannipuccetti/Models/13B/tokenizer.model" \
     --batch-size=8 \
     --max-seq-len=256 \
-    --output-path="/home/users/giovannipuccetti/Data/xsum/llama13b_rephrased.csv" \
+    --output-path="/home/users/giovannipuccetti/Data/xsum/" \
     --col-name="document" \
     --n-samples 1000

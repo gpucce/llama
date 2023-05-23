@@ -1,5 +1,5 @@
 #!/bin/bash -x
-#SBATCH --nodelist=ben[11-18]
+#SBATCH --nodes=2
 #SBATCH --gres=gpu:4
 #SBATCH --ntasks-per-node=4
 #SBATCH --cpus-per-task=4

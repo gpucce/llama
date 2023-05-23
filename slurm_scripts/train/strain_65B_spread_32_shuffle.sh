@@ -24,7 +24,7 @@ cd /home/users/giovannipuccetti/Repos/llama
 srun --cpu_bind=v --accel-bind=gn python -u -m llama.train \
     --model-dir="/home/users/giovannipuccetti/Models/65B_spread_32/" \
     --tokenizer-path="/home/users/giovannipuccetti/Models/65B_spread_32/tokenizer.model" \
-    --output_path "test_custom_optim" \
+    --output-path "test_custom_optim" \
     --batch-size=2 \
     --max-seq-len=128 \
     --epochs=50 \

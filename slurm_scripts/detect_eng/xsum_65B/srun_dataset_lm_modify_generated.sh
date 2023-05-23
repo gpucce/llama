@@ -22,8 +22,7 @@ srun --cpu_bind=v --accel-bind=gn python -u -m llama.data.dataset_lm_modificatio
     --data-path="/home/users/giovannipuccetti/Data/xsum/llama65b_rephrased.csv" \
     --col-names="generated_continuations" \
     --output-path="/home/users/giovannipuccetti/Data/xsum/xsum_test_synthetic_1000_llama65b_generated_continuations.csv" \
-    --device-id 0 \
     --n-modifications 100 \
-    --batch-size 96 \
-    --top-k 1 \
-    --modifier-model="t5-large"
+    --batch-size 8 \
+    --modifier-model="t5-11b" \
+    --n-samples 100

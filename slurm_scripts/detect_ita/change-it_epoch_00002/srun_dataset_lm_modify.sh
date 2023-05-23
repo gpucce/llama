@@ -24,5 +24,7 @@ srun --cpu_bind=v --accel-bind=gn python -u -m llama.data.dataset_lm_modificatio
     --data-path="./data/news_fine_tune/change-it.ilgiornale.test_1000_rephrased_epoch_$epoch.csv" \
     --col-names="true_continuations:generated_continuations" \
     --output-path="/home/users/giovannipuccetti/Data/CHANGE-it/test/change-it.ilgiornale.test_1000_news_epoch_${epoch}_synthetic.csv" \
-    --device-id 0 \
-    --n-modifications 100
+    --n-modifications 50 \
+    --batch-size 16 \
+    --modifier-model="gsarti/it5-large" \
+    --n-samples 100

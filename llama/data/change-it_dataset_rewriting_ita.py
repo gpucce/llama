@@ -26,17 +26,22 @@ from fairscale.nn.data_parallel import FullyShardedDataParallel as FSDP
 from llama import ModelArgs, Transformer, Tokenizer, load, setup_model_parallel
 
 from ..utils import custom_parse_args
+from ..data_utils import process_spaces
 
 
 def main():
     args = custom_parse_args()
 
     ckpt_dir = args.model_dir
-    tokenizer_parh = args.tokenizer_path
+    tokenizer_path = args.tokenizer_path
     temperature = args.temperature
     top_p = args.top_p
     batch_size = args.batch_size
     output_path = args.output_path
+    max_seq_len = args.max_seq_len
+    is_hf = args.is_hf
+    do_lora = args.do_lora
+    lora_r = args.lora_r
 
     local_rank, global_rank, world_size = setup_model_parallel()
     if global_rank > 0:
@@ -51,12 +56,15 @@ def main():
         world_size,
         max_seq_len,
         batch_size,
+        do_lora=do_lora,
+        lora_r=lora_r,
+        strict=True
     )
 
     # torch.distributed.barrier()
     generator.model.to(torch.device(local_rank))
 
-    epoch = [i for i in ckpt_dir.split("/") if "epoch" in i][0]
+    epoch = sorted([i for i in ckpt_dir.split("/") if "ckpt" in i])[0]
     file_name = "/home/users/giovannipuccetti/Data/CHANGE-it/test/change-it.ilgiornale.test_1000.csv"
     ds = pd.read_csv(file_name, index_col=0)
     random.seed(42)
@@ -69,43 +77,60 @@ def main():
     true_continuations = []
     generated_continuations = []
     start = time.time()
-    prompt_len = 64
-    max_gen_len = 128
+    prompt_len = 30
+    max_gen_len = 300
+    actual_gen_len = 150
     start = time.time()
     for idx, prompts in enumerate(dataloader):
-        prompt_tokens = [
-            generator.tokenizer.encode(prompt, bos=True, eos=False)
+        start = time.time()
+        prompts = [process_spaces(prompt).split() for prompt in prompts]
+        true_continuations += [
+            # " ".join(prompt[prompt_len : prompt_len + actual_gen_len])
+            " ".join(prompt[: actual_gen_len])
             for prompt in prompts
         ]
-        batch_true_continuations = [
-            i[prompt_len : prompt_len + max_gen_len] for i in prompt_tokens
-        ]
-        true_continuations += [
-            generator.tokenizer.decode(continuation)
-            for continuation in batch_true_continuations
-        ]
+        prompts = [" ".join(prompt[:prompt_len]) for prompt in prompts]
 
-        batch_prompt_tokens = [i[:prompt_len] for i in prompt_tokens]
-        batch_prompts = [
-            generator.tokenizer.decode(prompt_token)
-            for prompt_token in batch_prompt_tokens
-        ]
-        all_prompts += [
-            generator.tokenizer.decode(prompt) for prompt in batch_prompt_tokens
-        ]
-
-        batch_generated_continuations = generator.generate(
-            prompts,
-            prompt_tokens=batch_prompt_tokens,
-            max_gen_len=max_gen_len,
-            temperature=temperature,
-            top_p=top_p,
-        )
-
+        all_prompts += prompts
+        
+        if is_hf:
+            generator.to("cuda")
+            min_seq_len = min(len(i) for i in tokenizer(prompts))
+            tokenized = tokenizer(
+                prompts,
+                return_tensors="pt",
+                max_length=min_seq_len,
+                truncation=True
+            )
+            
+            batch_generated_continuations = generator.generate(
+                **{i:j.to("cuda") for i,j in tokenized.items()},
+                min_length=min_seq_len,
+                max_length=max_gen_len,
+                do_sample=True,
+                pad_token_id=tokenizer.eos_token_id, 
+                eos_token_id=tokenizer.eos_token_id
+            )
+            
+            batch_generated_continuations = tokenizer.batch_decode(
+                batch_generated_continuations, skip_special_tokens=True
+            )
+                
+        else:
+        
+            batch_generated_continuations = generator.generate(
+                prompts,
+                max_gen_len=max_gen_len,
+                temperature=temperature,
+                top_p=top_p,
+                ignore_eos=True
+            )
+    
         generated_continuations += [
-            cont[len(prompt) :]
-            for prompt, cont in zip(all_prompts, batch_generated_continuations)
+            " ".join(continuation.split()[: actual_gen_len])
+            for continuation in batch_generated_continuations
         ]
+    
         new_start = time.time()
         print(f"Step {idx} done in {new_start - start} secs.")
         start = new_start

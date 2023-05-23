@@ -3,6 +3,7 @@ from pathlib import Path
 from random import shuffle
 import pandas as pd
 from .finetune_data_prepare import data_prepare
+from ..utils import custom_parse_args
 
 
 def _prepare_input_data(data_path, tokenizer):
@@ -23,6 +24,8 @@ def _prepare_input_data(data_path, tokenizer):
 
 
 if __name__ == "__main__":
+    args = custom_parse_args()
+    
     tokenizer_path = "/home/users/giovannipuccetti/Models/65B/tokenizer.model"
     data_path = "/home/users/giovannipuccetti/Data/CHANGE-it/train"
     seq_len = 128
