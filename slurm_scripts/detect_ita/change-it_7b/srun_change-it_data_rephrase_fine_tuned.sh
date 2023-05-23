@@ -28,4 +28,6 @@ srun --cpu_bind=v --accel-bind=gn python -u -m llama.data.change-it_dataset_rewr
     --batch-size=32 \
     --max-seq-len=1000 \
     --output-path="/home/users/giovannipuccetti/Data/CHANGE-it/${date}" \
-    --temperature=0.8
+    --temperature=0.8 \
+    --do-lora \
+    --lora-r 8
