@@ -42,6 +42,7 @@ def main():
     is_hf = args.is_hf
     do_lora = args.do_lora
     lora_r = args.lora_r
+    strict_load = args.strict_load
 
     local_rank, global_rank, world_size = setup_model_parallel()
     if global_rank > 0:
@@ -58,13 +59,14 @@ def main():
         batch_size,
         do_lora=do_lora,
         lora_r=lora_r,
-        strict=True
+        strict=strict_load
     )
 
     # torch.distributed.barrier()
     generator.model.to(torch.device(local_rank))
 
-    epoch = sorted([i for i in ckpt_dir.split("/") if "ckpt" in i])[0]
+    epoch = sorted([i for i in ckpt_dir.split("/") if "ckpt" in i or "epoch" in i])
+    epoch = epoch[0] if len(epoch) > 0 else 0
     file_name = "/home/users/giovannipuccetti/Data/CHANGE-it/test/change-it.ilgiornale.test_1000.csv"
     ds = pd.read_csv(file_name, index_col=0)
     random.seed(42)

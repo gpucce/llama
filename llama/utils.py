@@ -93,6 +93,7 @@ def custom_parse_args():
     parser.add_argument("--resume", type=str, default=None)
     parser.add_argument("--skip-epoch", type=int, default=0)
     parser.add_argument("--steps-per-ckpt", type=int, default=10000)
+    parser.add_argument("--strict-load", action="store_true", default=False)
     parser.add_argument("--temperature", type=float, default=0.8)
     parser.add_argument("--tokenizer-path", type=str, default=None)
     parser.add_argument("--top-p", type=float, default=0.95)
