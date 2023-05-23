@@ -5,7 +5,7 @@ import regex as re
 import sys
 from argparse import ArgumentParser
 
-from ..data_utils import process_spaces
+# from ..data_utils import process_spaces
 
 _SHUFFLING_ORDER = [
     17,
@@ -33,10 +33,10 @@ _SHUFFLING_ORDER = [
 
 def template(txta, txtb):
     # txta = " ".join(txta.split(" ")[:-1]) + "..."
-    txtb = " ".join(txtb.split(" ")[:-1]) + "..."
-    txta = process_spaces(txta)
-    txtb = process_spaces(txtb)
-    return f"""<p style="text-align: justify;"><span style="font-size: 14px;">Il testo B segue il testo A. Pensi che B sia stato generato automaticamente?<br><br><strong>A:</strong>&nbsp;{txta}</span></p><hr id="null"><span style="font-size: 16px;"><strong>B:&nbsp;</strong>{txtb}</span>"""
+    txtb = " ".join(txtb.split(" ")[:50]) + "..."
+    # txta = process_spaces(txta)
+    # txtb = process_spaces(txtb)
+    return f"""<p style="text-align: justify;"><span style="font-size: 14px;">Il testo B segue il testo A. Pensi che B sia stato scritto da una persona o da una macchina?<br><br><strong>A:</strong>&nbsp;{txta}</span></p><hr id="null"><span style="font-size: 16px;"><strong>B:&nbsp;</strong>{txtb}</span>"""
 
 
 
@@ -45,20 +45,19 @@ def main(args):
     control_txtb = """ E' quello che ha dichiarato il fondatore di Facebook in un'intervista a Bloomberg. "Siamo pronti a fare tutto quello che è necessario per entrare in Cina" ha detto Zuckerberg. "Siamo pronti a fare tutto quello che è necessario per entrare in Cina". "Siamo pronti a fare tutto quello che è necessario per entrare in Cina". "Siamo pronti a fare tutto quello che è necessario per entrare in Cina". "Siamo pronti a fare..."""
     control_q = template(control_txta, control_txtb)
     control_id = 6
-    
+
     random.seed(42)
     rephrased_df = pd.read_csv(
         # "./llama/human_eval/input/change-it.ilgiornale.test_1000_rephrased_epoch_00006.csv",
         args.input_df,
-        sep="\t",
         index_col=0,
         lineterminator="\n",
     )
-    
+
     n_questionaries = 6
     q_per_questionary = 20
-    
-    
+
+
     evaldf = pd.read_csv("./llama/human_eval/questions_import_sample_IT.csv")
     dfs1 = []
     dfs2 = []
