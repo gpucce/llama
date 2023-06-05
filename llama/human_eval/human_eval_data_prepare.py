@@ -71,10 +71,10 @@ def main(args):
         future_df2 = evaldf.to_dict()
         for key in list(future_df2.keys()):
             future_df2[key] = [future_df2[key][0]]
-    
+
         future_df1["is_human"] = ["boh"]
         future_df2["is_human"] = ["boh"]
-    
+
         for idx in split1:
             for key in list(future_df1):
                 if key not in ["Testo domanda", "is_human"]:
@@ -83,22 +83,22 @@ def main(args):
                     continue
                 if key == "Testo domanda":
                     prompt = df.iloc[idx, :].prompts
-                    
+
                     true_continuation = df.iloc[idx, :].true_continuations
                     if true_continuation.startswith(prompt):
                         true_continuation = true_continuation[len(prompt):]
-                    
+
                     generated_continuation = df.iloc[idx, :].generated_continuations
                     if generated_continuation.startswith(prompt):
                         generated_continuation = generated_continuation[len(prompt):]
-                
+
                     future_df1[key].append(template(prompt, true_continuation))
                     future_df2[key].append(template(prompt, generated_continuation))
-                
+
                 elif key == "is_human":
                     future_df1[key].append(True)
                     future_df2[key].append(False)
-    
+
         for idx in split2:
             for key in list(future_df1):
                 if key not in ["Testo domanda", "is_human"]:
@@ -107,46 +107,49 @@ def main(args):
                     continue
                 if key == "Testo domanda":
                     prompt = df.iloc[idx, :].prompts
-                    
+
                     true_continuation = df.iloc[idx, :].true_continuations
                     if true_continuation.startswith(prompt):
                         true_continuation = true_continuation[len(prompt):]
-                    
+
                     generated_continuation = df.iloc[idx, :].generated_continuations
                     if generated_continuation.startswith(prompt):
                         generated_continuation = generated_continuation[len(prompt):]
-                    
+
                     future_df1[key].append(template(prompt, generated_continuation))
                     future_df2[key].append(template(prompt, true_continuation))
-                
+
                 elif key == "is_human":
                     future_df1[key].append(False)
                     future_df2[key].append(True)
-    
+
         # drop first
         for key in list(future_df1.keys()):
             future_df1[key] = future_df1[key][1:]
         for key in list(future_df2.keys()):
             future_df2[key] = future_df2[key][1:]
-        
+
         future_df1["order"] = range(q_per_questionary)
         future_df2["order"] = range(q_per_questionary)
-        
+
         shuffled_df1 = {}
         for key, val in future_df1.items():
             shuffled_df1[key] = [val[idx] for idx in _SHUFFLING_ORDER]
         shuffled_df2 = {}
         for key, val in future_df2.items():
             shuffled_df2[key] = [val[idx] for idx in _SHUFFLING_ORDER]
-        
+
         # if n_split == 0:
         #     assert shuffled_df1["Testo domanda"][6] == control_q, "missing control sequence"
-            
+
         shuffled_df1["Testo domanda"][6] = control_q
         shuffled_df2["Testo domanda"][6] = control_q
+        shuffled_df1["is_human"][6] = False
+        shuffled_df2["is_human"][6] = False
+
         dfs1.append(shuffled_df1)
         dfs2.append(shuffled_df2)
-        
+
         output_path = Path(args.output_path)
         output_path.mkdir(exist_ok=True, parents=True)
         pd.DataFrame.from_dict(shuffled_df1).to_csv(output_path / f"human_eval_df1_{n_split}.csv", encoding="utf-8")
