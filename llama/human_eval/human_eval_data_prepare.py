@@ -52,9 +52,10 @@ def main(args):
         args.input_df,
         index_col=0,
         lineterminator="\n",
+        sep="\t"
     )
 
-    n_questionaries = 6
+    n_questionaries = 5
     q_per_questionary = 20
 
 
