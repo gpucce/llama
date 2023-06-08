@@ -2,3 +2,7 @@ torch
 fairscale
 fire
 sentencepiece
+pandas
+matplotlib
+sklearn
+seaborn
